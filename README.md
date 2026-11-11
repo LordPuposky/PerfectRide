@@ -25,6 +25,7 @@ Car and motorcycle owners who want to keep their maintenance records organized a
 
 ## Team Members
 
+- Dagbame Franck Zagadou
 - Gift Ndoma
 - Joseph Bowen
 - Yesid Augusto Romero Ruiz
