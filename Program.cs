@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using PerfectRide.Components;
 using PerfectRide.Components.Account;
 using PerfectRide.Data;
+using PerfectRide.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -39,6 +40,7 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
     .AddDefaultTokenProviders();
 
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
+builder.Services.AddScoped<AnnouncementState>();
 
 var app = builder.Build();
 

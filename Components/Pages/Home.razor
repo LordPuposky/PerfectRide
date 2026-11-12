@@ -1,5 +1,7 @@
 ﻿@page "/"
+@using PerfectRide.Services
 
+@inject AnnouncementState AnnouncementState
 @rendermode InteractiveServer
 
 
@@ -35,4 +37,13 @@
     {
         NavigationManager.NavigateTo("/Account/Login"); 
     }
+
+    protected override void OnInitialized()
+{
+    AnnouncementState.SetAnnouncement(
+        "Join PerfectRide today! Register now!",
+        true,
+        "info"
+    );
+}
 }
