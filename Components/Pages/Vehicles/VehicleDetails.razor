@@ -1,0 +1,122 @@
+@page "/vehicles/{Id:int}"
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using PerfectRide.Data
+@inject ApplicationDbContext Db
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthStateProvider
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<PageTitle>Vehicle Details</PageTitle>
+
+<div class="container mt-4">
+    @if (vehicle == null)
+    {
+        <p>Loading...</p>
+    }
+    else
+    {
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h1>@vehicle.Year @vehicle.Make @vehicle.Model</h1>
+            <div>
+                <a href="/vehicles/edit/@vehicle.Id" class="btn btn-secondary me-2">Edit</a>
+                <a href="/vehicles/delete/@vehicle.Id" class="btn btn-danger me-2">Delete</a>
+                <a href="/vehicles" class="btn btn-outline-secondary">Back to Vehicles</a>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Vehicle Information</h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text"><strong>Year:</strong> @vehicle.Year</p>
+                <p class="card-text"><strong>Make:</strong> @vehicle.Make</p>
+                <p class="card-text"><strong>Model:</strong> @vehicle.Model</p>
+                @if (!string.IsNullOrEmpty(vehicle.Plate))
+                {
+                    <p class="card-text"><strong>License Plate:</strong> @vehicle.Plate</p>
+                }
+                @if (!string.IsNullOrEmpty(vehicle.VIN))
+                {
+                    <p class="card-text"><strong>VIN:</strong> @vehicle.VIN</p>
+                }
+                @if (latestMileage != null)
+                {
+                    <p class="card-text"><strong>Current Mileage:</strong> @latestMileage.Mileage.ToString("N0") miles</p>
+                }
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0">Maintenance Records</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Maintenance records will appear here.</p>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0">Fuel Records</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Fuel records will appear here.</p>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0">Expenses</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Expense records will appear here.</p>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0">Documents</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Documents will appear here.</p>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private Vehicle? vehicle;
+    private MileageTracking? latestMileage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userId = authState.User
+            .FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        if (userId != null)
+        {
+            vehicle = await Db.Vehicles
+                .FirstOrDefaultAsync(v => v.Id == Id && v.UserId == userId);
+
+            if (vehicle != null)
+            {
+                latestMileage = await Db.MileageTrackings
+                    .Where(m => m.VehicleId == Id)
+                    .OrderByDescending(m => m.Mileage)
+                    .FirstOrDefaultAsync();
+            }
+        }
+
+        if (vehicle == null)
+        {
+            Nav.NavigateTo("/vehicles");
+        }
+    }
+}
