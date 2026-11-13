@@ -1,0 +1,131 @@
+@using PerfectRide.Data
+@using PerfectRide.Helpers
+@using PerfectRide.Models
+
+@* Shared form used by the Add and Edit maintenance pages. *@
+
+<EditForm EditContext="_editContext" OnValidSubmit="HandleValidSubmit">
+    <DataAnnotationsValidator />
+
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@ErrorMessage</div>
+    }
+
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label for="maintenance-item" class="form-label">Service (required)</label>
+            <InputSelect id="maintenance-item" class="form-select" @bind-Value="Model.MaintenanceItem">
+                <option value="">Choose a service...</option>
+                @foreach (var item in Enum.GetValues<MaintenanceItem>())
+                {
+                    <option value="@item">@DisplayNameHelper.ToDisplayName(item)</option>
+                }
+            </InputSelect>
+            <ValidationMessage For="() => Model.MaintenanceItem" class="text-danger" />
+        </div>
+
+        <div class="col-md-6">
+            <label for="date-performed" class="form-label">Date (required)</label>
+            <InputDate id="date-performed" class="form-control" @bind-Value="Model.DatePerformed"
+                       max="@DateTime.Today.ToString("yyyy-MM-dd")" />
+            <ValidationMessage For="() => Model.DatePerformed" class="text-danger" />
+        </div>
+
+        <div class="col-md-6">
+            <label for="mileage" class="form-label">Mileage (required)</label>
+            <InputNumber id="mileage" class="form-control" @bind-Value="Model.Mileage" min="0" max="999999" />
+            <ValidationMessage For="() => Model.Mileage" class="text-danger" />
+        </div>
+
+        <div class="col-md-6">
+            <label for="cost" class="form-label">Cost in USD</label>
+            <InputNumber id="cost" class="form-control" @bind-Value="Model.Cost" min="0" step="0.01" />
+            <ValidationMessage For="() => Model.Cost" class="text-danger" />
+        </div>
+
+        <div class="col-12">
+            <label for="service-provider" class="form-label">Service provider</label>
+            <InputText id="service-provider" class="form-control" @bind-Value="Model.ServiceProvider" maxlength="100" />
+            <ValidationMessage For="() => Model.ServiceProvider" class="text-danger" />
+        </div>
+
+        <div class="col-12">
+            <label for="description" class="form-label">Notes</label>
+            <InputTextArea id="description" class="form-control" rows="3" @bind-Value="Model.Description"
+                           maxlength="500" aria-describedby="description-help" />
+            <div id="description-help" class="form-text">Required when the service is "Other".</div>
+            <ValidationMessage For="() => Model.Description" class="text-danger" />
+        </div>
+    </div>
+
+    <div class="mt-4 d-flex gap-2">
+        <button type="submit" class="btn btn-primary" disabled="@IsSaving">
+            @(IsSaving ? "Saving..." : SubmitText)
+        </button>
+        <a class="btn btn-outline-secondary" href="@CancelUrl">Cancel</a>
+    </div>
+</EditForm>
+
+@code {
+    [Parameter, EditorRequired]
+    public MaintenanceFormModel Model { get; set; } = default!;
+
+    [Parameter]
+    public EventCallback OnValidSubmit { get; set; }
+
+    [Parameter]
+    public string SubmitText { get; set; } = "Save";
+
+    [Parameter, EditorRequired]
+    public string CancelUrl { get; set; } = "/authenticated/maintenance";
+
+    [Parameter]
+    public bool IsSaving { get; set; }
+
+    [Parameter]
+    public string? ErrorMessage { get; set; }
+
+    private EditContext? _editContext;
+    private ValidationMessageStore? _ruleMessages;
+    private bool _submitAttempted;
+
+    protected override void OnParametersSet()
+    {
+        // Create the EditContext once per model so typed values survive re-renders.
+        if (_editContext is null || !ReferenceEquals(_editContext.Model, Model))
+        {
+            _editContext = new EditContext(Model);
+            _ruleMessages = new ValidationMessageStore(_editContext);
+
+            // On submit: check the rules together with the data annotations.
+            _editContext.OnValidationRequested += (_, _) =>
+            {
+                _submitAttempted = true;
+                CheckRules();
+            };
+
+            // After the first submit, update the rule messages while the user fixes the form,
+            // so no old message stays on screen.
+            _editContext.OnFieldChanged += (_, _) =>
+            {
+                if (_submitAttempted)
+                {
+                    CheckRules();
+                    _editContext.NotifyValidationStateChanged();
+                }
+            };
+        }
+    }
+
+    private void CheckRules()
+    {
+        _ruleMessages!.Clear();
+        foreach (var (fieldName, message) in Model.GetRuleErrors())
+        {
+            _ruleMessages.Add(_editContext!.Field(fieldName), message);
+        }
+    }
+
+    private Task HandleValidSubmit() => OnValidSubmit.InvokeAsync();
+}

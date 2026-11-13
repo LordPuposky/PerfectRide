@@ -22,6 +22,7 @@ public class MaintenanceService(ApplicationDbContext context)
             .Include(r => r.MileageTracking)
             .Include(r => r.MaintenanceSchedule)
             .OrderByDescending(r => r.DatePerformed)
+            .ThenByDescending(r => r.MileageTracking!.Mileage)
             .ToListAsync();
     }
 
@@ -49,6 +50,16 @@ public class MaintenanceService(ApplicationDbContext context)
     }
 
     /// <summary>
+    /// Returns the highest mileage recorded for the vehicle, or null if there are no readings.
+    /// </summary>
+    public async Task<int?> GetLatestMileageAsync(int vehicleId, string userId)
+    {
+        return await context.MileageTrackings
+            .Where(m => m.VehicleId == vehicleId && m.Vehicle!.UserId == userId)
+            .MaxAsync(m => (int?)m.Mileage);
+    }
+
+    /// <summary>
     /// Adds a maintenance record and its MileageTracking entry.
     /// Both are saved in one SaveChanges call, which runs in a single transaction.
     /// </summary>
@@ -65,7 +76,17 @@ public class MaintenanceService(ApplicationDbContext context)
         };
 
         context.MaintenanceRecords.Add(record);
-        await context.SaveChangesAsync();
+        try
+        {
+            await context.SaveChangesAsync();
+        }
+        catch
+        {
+            // Blazor Server keeps the same DbContext for the whole session.
+            // Clear the failed record so it is not saved again on the next attempt.
+            context.ChangeTracker.Clear();
+            throw;
+        }
         return record.Id;
     }
 
@@ -98,7 +119,16 @@ public class MaintenanceService(ApplicationDbContext context)
         existing.MileageTracking!.Mileage = mileage;
         existing.MileageTracking.DateRecorded = updated.DatePerformed;
 
-        await context.SaveChangesAsync();
+        try
+        {
+            await context.SaveChangesAsync();
+        }
+        catch
+        {
+            // Same reason as in AddRecordAsync: do not keep failed changes in the session.
+            context.ChangeTracker.Clear();
+            throw;
+        }
         return true;
     }
 
