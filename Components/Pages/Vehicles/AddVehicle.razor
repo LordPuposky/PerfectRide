@@ -1,0 +1,99 @@
+@page "/vehicles/add"
+@using Microsoft.AspNetCore.Authorization
+@using PerfectRide.Data
+@inject ApplicationDbContext Db
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthStateProvider
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<PageTitle>Add Vehicle</PageTitle>
+
+<div class="container mt-4">
+    <h1>Add Vehicle</h1>
+
+    <EditForm Model="vehicle" OnValidSubmit="HandleSubmit" FormName="add-vehicle">
+        <DataAnnotationsValidator />
+        <ValidationSummary class="text-danger" />
+
+        <div class="mb-3">
+            <label class="form-label">Year <span class="text-danger">*</span></label>
+            <InputNumber class="form-control" @bind-Value="vehicle.Year" placeholder="e.g. 2017" min="1900"
+                         max="2300" />
+            <ValidationMessage For="() => vehicle.Year" class="text-danger" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Make <span class="text-danger">*</span></label>
+            <InputText class="form-control" @bind-Value="vehicle.Make" placeholder="e.g. Toyota" />
+            <ValidationMessage For="() => vehicle.Make" class="text-danger" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Model <span class="text-danger">*</span></label>
+            <InputText class="form-control" @bind-Value="vehicle.Model" placeholder="e.g. Camry" />
+            <ValidationMessage For="() => vehicle.Model" class="text-danger" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">VIN (optional)</label>
+            <InputText class="form-control" @bind-Value="vehicle.VIN" placeholder="e.g. 1HGBH41JXMN109186" />
+            <ValidationMessage For="() => vehicle.VIN" class="text-danger" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">License Plate (optional)</label>
+            <InputText class="form-control" @bind-Value="vehicle.Plate" placeholder="e.g. ABC1234" />
+            <ValidationMessage For="() => vehicle.Plate" class="text-danger" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Current Mileage <span class="text-danger">*</span></label>
+            <InputNumber class="form-control" @bind-Value="currentMileage" placeholder="e.g. 45000" min="0"
+                         max="999999" />
+            @if (mileageError)
+            {
+                <span class="text-danger">Current mileage is required and must be 0 or greater.</span>
+            }
+        </div>
+
+        <button type="submit" class="btn btn-primary">Save Vehicle</button>
+        <a href="/vehicles" class="btn btn-secondary ms-2">Cancel</a>
+    </EditForm>
+</div>
+
+@code {
+    private Vehicle vehicle = new() { UserId = "pending" };
+    private int? currentMileage = null;
+    private bool mileageError = false;
+
+    private async Task HandleSubmit()
+    {
+        mileageError = currentMileage == null || currentMileage < 0;
+        if (mileageError) return;
+
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userId = authState.User
+            .FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        if (userId != null)
+        {
+            vehicle.UserId = userId;
+            Db.Vehicles.Add(vehicle);
+            await Db.SaveChangesAsync();
+
+            var mileageEntry = new MileageTracking
+            {
+                VehicleId = vehicle.Id,
+                DateRecorded = DateOnly.FromDateTime(DateTime.Today),
+                Mileage = currentMileage!.Value,
+                Source = MileageSource.Manual
+            };
+
+            Db.MileageTrackings.Add(mileageEntry);
+            await Db.SaveChangesAsync();
+
+            Nav.NavigateTo("/vehicles");
+        }
+    }
+}
