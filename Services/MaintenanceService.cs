@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using PerfectRide.Data;
 
@@ -173,6 +174,34 @@ public class MaintenanceService(ApplicationDbContext context)
         if (mileage < 0 || mileage > 999999)
         {
             throw new ArgumentException("Mileage must be between 0 and 999,999.");
+        }
+
+        // An odometer never goes backward: the mileage must fit between
+        // the readings recorded before and after this date for the same vehicle.
+        // When editing, the record's own reading is ignored.
+        var otherReadings = context.MileageTrackings
+            .Where(m => m.VehicleId == record.VehicleId)
+            .Where(m => m.MaintenanceRecord == null || m.MaintenanceRecord.Id != record.Id);
+
+        var usCulture = CultureInfo.GetCultureInfo("en-US");
+        var date = record.DatePerformed.ToString("MMM d, yyyy", usCulture);
+
+        int? highestBefore = await otherReadings
+            .Where(m => m.DateRecorded < record.DatePerformed)
+            .MaxAsync(m => (int?)m.Mileage);
+        if (highestBefore is int before && mileage < before)
+        {
+            throw new ArgumentException(
+                $"The mileage cannot be lower than {before.ToString("N0", usCulture)} mi, which was recorded before {date}.");
+        }
+
+        int? lowestAfter = await otherReadings
+            .Where(m => m.DateRecorded > record.DatePerformed)
+            .MinAsync(m => (int?)m.Mileage);
+        if (lowestAfter is int after && mileage > after)
+        {
+            throw new ArgumentException(
+                $"The mileage cannot be higher than {after.ToString("N0", usCulture)} mi, which was recorded after {date}.");
         }
 
         if (record.MaintenanceItem == MaintenanceItem.Other && string.IsNullOrWhiteSpace(record.Description))
