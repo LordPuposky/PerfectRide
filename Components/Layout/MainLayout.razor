@@ -1,4 +1,8 @@
-﻿@inherits LayoutComponentBase
+﻿@using PerfectRide.Services
+@inherits LayoutComponentBase
+
+@inject AnnouncementState AnnouncementState
+@implements IDisposable
 
 <div class="page">
     <div class="sidebar">
@@ -6,8 +10,13 @@
     </div>
 
     <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+        <div class="top-row px-4 d-flex align-items-center">
+            <AnnouncementBanner
+                Message="@AnnouncementState.Message"
+                IsAnimated="@AnnouncementState.IsAnimated" 
+                MessageType="@AnnouncementState.MessageType"/>
+
+            <a href="/about" class="ms-3">About</a>
         </div>
 
         <article class="content px-4">
@@ -21,3 +30,20 @@
     <a href="." class="reload">Reload</a>
     <span class="dismiss">🗙</span>
 </div>
+
+@code {
+protected override void OnInitialized()
+{
+    AnnouncementState.OnChange += HandleAnnouncementChanged;
+}
+
+private void HandleAnnouncementChanged()
+{
+    _ = InvokeAsync(StateHasChanged);
+}
+
+public void Dispose()
+{
+    AnnouncementState.OnChange -= HandleAnnouncementChanged;
+}
+}

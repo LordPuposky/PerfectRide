@@ -1,0 +1,116 @@
+@using System.Security.Claims
+@using PerfectRide.Data
+@using PerfectRide.Services
+@using PerfectRide.Helpers
+
+@inject VehicleService VehicleService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <h1 class="card-title">My Vehicles</h1>
+
+        @if (_isLoading)
+        {
+            <p>Loading vehicles...</p>
+        }
+        else if (_vehicles.Count == 0)
+        {
+            <p>You haven't added any vehicles yet.</p>
+        }
+        else
+        {
+            @foreach (var vehicle in _vehicles)
+            {
+                <div class="vehicle-card mb-3">
+                    <div class="vehicle-card-header">
+                        <strong>@vehicle.Year @vehicle.Make @vehicle.Model</strong>
+                    </div>
+
+                    <div class="vehicle-card-body">
+                        <div class="vehicle-info">
+                            @{
+                                int? mileage = GetLatestMileage(vehicle);
+                            }
+
+                            <div>
+                                <span class="info-label">Current Mileage: </span>
+                                <NavLink href="/Authenticated/mileage">See Vehicle Mileage Records</NavLink>
+                                @if (mileage.HasValue)
+                                {
+                                    <strong>@mileage.Value.ToString("N0") Miles</strong>
+                                }
+                                else
+                                {
+                                    <span>No Mileage Recorded</span>
+                                }
+                            </div>
+
+                            <div>
+                                <span class="info-label">Last Maintenance</span>
+                                <strong>@GetLatestMaintenance(vehicle)</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    private List<Vehicle> _vehicles = new();
+    private bool _isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (!string.IsNullOrEmpty(userId))
+        {
+            _vehicles = await VehicleService.GetVehiclesAsync(userId);
+        }
+
+        _isLoading = false;
+
+    }
+    int GetLatestMileage(Vehicle vehicle)
+    {
+        int mileage = 0; 
+        foreach (var record in vehicle.MileageTrackings)
+        {
+            if (record.Mileage > mileage)
+            {
+                mileage = record.Mileage; 
+            }
+        }
+        return mileage;
+    }
+    string? GetLatestMaintenance(Vehicle vehicle)
+    {
+        MaintenanceRecord? latest = null; 
+        foreach (MaintenanceRecord record in vehicle.MaintenanceRecords)
+        {
+            if (latest == null)
+            {
+                latest = record;
+            } 
+            if (latest.DatePerformed < record.DatePerformed)
+            {
+                latest = record;
+            }
+        }
+        if (latest != null)
+        {
+            string returnString = $"{DisplayNameHelper.ToDisplayName(latest.MaintenanceItem)} on {latest.DatePerformed.ToShortDateString()}";  
+            return returnString; 
+        } else
+        {
+            string returnString = "No maintenance items have been recorded.";
+            return returnString; 
+        }
+    }
+}
