@@ -3,7 +3,7 @@
 PerfectRide is a Blazor web application that helps vehicle owners keep track of their vehicle maintenance. Users can register their vehicles, log maintenance services, and see which services are coming up or overdue.
 
 This is the group project for **CSE 325: .NET Software Development** at BYU-Idaho.
-
+ 
 ## Target Audience
 
 Car and motorcycle owners who want to keep their maintenance records organized and avoid missing important services.
@@ -25,6 +25,7 @@ Car and motorcycle owners who want to keep their maintenance records organized a
 
 ## Team Members
 
+- Dagbame Franck Zagadou
 - Gift Ndoma
 - Joseph Bowen
 - Yesid Augusto Romero Ruiz
