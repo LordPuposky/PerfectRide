@@ -1,0 +1,65 @@
+.maintenance-card {
+  background-color: var(--white);
+  border: 1px solid #dce3e8;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+}
+
+.maintenance-card-header {
+  background-color: var(--primaryBackground);
+  color: var(--white);
+  padding: 16px 20px;
+  font-size: 1.15rem;
+  border-bottom: 3px solid var(--accent);
+}
+
+.maintenance-card-body {
+  padding: 10px 12px;
+}
+
+.maintenance-info {
+  background-color: var(--coolGray);
+  border-radius: 8px;
+  padding: 16px;
+  min-height: 105px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+}
+
+.maintenance-info strong:first-child {
+  color: var(--primaryBackground);
+  font-size: 1.65rem;
+  font-weight: 700;
+}
+
+.maintenance-info strong:last-child {
+  color: var(--mainText);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* Arrange the four statistics in two columns */
+.maintenance-card {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.maintenance-card-header {
+  grid-column: 1 / -1;
+}
+
+/* Responsive layout for smaller screens */
+@media (max-width: 400px) {
+  .maintenance-card {
+    grid-template-columns: 1fr;
+  }
+
+  .maintenance-card-header {
+    grid-column: 1;
+  }
+}

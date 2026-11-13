@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="PerfectRide">
+  <title>PerfectRide</title>
+  <defs>
+    <radialGradient id="gTeal" gradientUnits="userSpaceOnUse" cx="256" cy="295" r="182.0"><stop offset="0.648" stop-color="#005b5e" stop-opacity="0.04"/><stop offset="0.82" stop-color="#005b5e" stop-opacity="0.55"/><stop offset="1" stop-color="#005b5e" stop-opacity="1"/></radialGradient>
+    <radialGradient id="gGold" gradientUnits="userSpaceOnUse" cx="256" cy="295" r="182.0"><stop offset="0.648" stop-color="#f2b84b" stop-opacity="0.04"/><stop offset="0.82" stop-color="#f2b84b" stop-opacity="0.55"/><stop offset="1" stop-color="#f2b84b" stop-opacity="1"/></radialGradient>
+    <radialGradient id="gRed" gradientUnits="userSpaceOnUse" cx="256" cy="295" r="182.0"><stop offset="0.648" stop-color="#8a1c1c" stop-opacity="0.04"/><stop offset="0.82" stop-color="#8a1c1c" stop-opacity="0.55"/><stop offset="1" stop-color="#8a1c1c" stop-opacity="1"/></radialGradient>
+    <mask id="behindCar" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512"><rect width="512" height="512" fill="#fff"/><path d="M458 352 C458 330 430 312 390 306 C366 303 348 302 336 298 C316 290 296 272 266 266 C246 262 226 260 210 268 C196 275 184 292 170 312 L170 430 L458 430 Z" fill="#000"/></mask>
+  </defs>
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="#f4f7f9" stroke="#142b3a" stroke-opacity="0.14" stroke-width="3"/>
+  <g transform="translate(0,26)">
+  <!-- Tachometer: normal range, yellow upshift zone, redline -->
+  <g fill="none" stroke-width="64">
+    <path d="M126.1 370.0 A150 150 0 0 1 307.3 154.0" stroke="url(#gTeal)"/>
+    <path d="M307.3 154.0 A150 150 0 0 1 385.9 220.0" stroke="url(#gGold)"/>
+    <path d="M385.9 220.0 A150 150 0 0 1 385.9 370.0" stroke="url(#gRed)"/>
+  </g>
+  <g stroke="#142b3a" stroke-opacity="0.7" stroke-width="3.5" stroke-linecap="round">
+    <line x1="68.9" y1="328.0" x2="61.0" y2="329.4"/><line x1="68.9" y1="262.0" x2="55.1" y2="259.6"/><line x1="91.5" y1="200.0" x2="84.5" y2="196.0"/><line x1="133.9" y1="149.5" x2="124.9" y2="138.7"/><line x1="191.0" y1="116.5" x2="188.3" y2="108.9"/><line x1="256.0" y1="105.0" x2="256.0" y2="91.0"/><line x1="321.0" y1="116.5" x2="323.7" y2="108.9"/><line x1="378.1" y1="149.5" x2="387.1" y2="138.7"/><line x1="420.5" y1="200.0" x2="427.5" y2="196.0"/><line x1="443.1" y1="262.0" x2="456.9" y2="259.6"/><line x1="443.1" y1="328.0" x2="451.0" y2="329.4"/>
+  </g>
+  <!-- Needle: hidden where it passes behind the car -->
+  <g mask="url(#behindCar)">
+    <path d="M428.2 258.4 L257.9 303.8 L221.8 307.4 L219.7 297.6 L254.1 286.2 Z" fill="#f2b84b" stroke="#142b3a" stroke-width="2.5" stroke-linejoin="round"/>
+    <circle cx="256" cy="295" r="15" fill="#f2b84b" stroke="#142b3a" stroke-width="3"/>
+    <circle cx="256" cy="295" r="6" fill="#142b3a"/>
+  </g>
+  <!-- Abstract sports car side view: two lines -->
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M336 298 C316 306 288 312 252 313 C216 314 184 312 154 308 C124 304 100 316 86 336 C80 344 76 348 74 356" stroke="#142b3a" stroke-width="12"/>
+    <path d="M458 352 C458 330 430 312 390 306 C366 303 348 302 336 298 C316 290 296 272 266 266 C246 262 226 260 210 268 C196 275 184 292 170 312" stroke="#142b3a" stroke-width="12"/>
+  </g>
+  </g>
+</svg>
