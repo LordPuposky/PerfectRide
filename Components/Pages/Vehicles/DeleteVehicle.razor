@@ -1,0 +1,83 @@
+@page "/vehicles/delete/{Id:int}"
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using PerfectRide.Data
+@inject ApplicationDbContext Db
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthStateProvider
+@attribute [Authorize]
+@rendermode InteractiveServer
+
+<PageTitle>Delete Vehicle</PageTitle>
+
+<div class="container mt-4">
+    <h1>Delete Vehicle</h1>
+
+    @if (vehicle == null)
+    {
+        <p>Loading...</p>
+    }
+    else
+    {
+        <div class="alert alert-danger">
+            <h4>Are you sure you want to delete this vehicle?</h4>
+            <p>This will permanently delete the vehicle and all its associated records including maintenance history, fuel records, mileage tracking, and documents. This cannot be undone.</p>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">@vehicle.Year @vehicle.Make @vehicle.Model</h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text"><strong>Make:</strong> @vehicle.Make</p>
+                <p class="card-text"><strong>Model:</strong> @vehicle.Model</p>
+                <p class="card-text"><strong>Year:</strong> @vehicle.Year</p>
+                @if (!string.IsNullOrEmpty(vehicle.Plate))
+                {
+                    <p class="card-text"><strong>Plate:</strong> @vehicle.Plate</p>
+                }
+                @if (!string.IsNullOrEmpty(vehicle.VIN))
+                {
+                    <p class="card-text"><strong>VIN:</strong> @vehicle.VIN</p>
+                }
+            </div>
+        </div>
+
+        <button class="btn btn-danger" @onclick="HandleDelete">Yes, Delete Vehicle</button>
+        <a href="/vehicles" class="btn btn-secondary ms-2">Cancel</a>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private Vehicle? vehicle;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userId = authState.User
+            .FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        if (userId != null)
+        {
+            vehicle = await Db.Vehicles
+                .FirstOrDefaultAsync(v => v.Id == Id && v.UserId == userId);
+        }
+
+        if (vehicle == null)
+        {
+            Nav.NavigateTo("/vehicles");
+        }
+    }
+
+    private async Task HandleDelete()
+    {
+        if (vehicle == null) return;
+
+        Db.Vehicles.Remove(vehicle);
+        await Db.SaveChangesAsync();
+        Nav.NavigateTo("/vehicles");
+    }
+}
