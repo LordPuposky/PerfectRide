@@ -39,6 +39,16 @@ public class MaintenanceService(ApplicationDbContext context)
     }
 
     /// <summary>
+    /// Returns the vehicle if it belongs to the user; otherwise null.
+    /// </summary>
+    public async Task<Vehicle?> GetVehicleAsync(int vehicleId, string userId)
+    {
+        return await context.Vehicles
+            .AsNoTracking()
+            .FirstOrDefaultAsync(v => v.Id == vehicleId && v.UserId == userId);
+    }
+
+    /// <summary>
     /// Adds a maintenance record and its MileageTracking entry.
     /// Both are saved in one SaveChanges call, which runs in a single transaction.
     /// </summary>

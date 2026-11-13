@@ -1,0 +1,172 @@
+@page "/authenticated/maintenance/{VehicleId:int}"
+@rendermode InteractiveServer
+@using System.Globalization
+@using System.Security.Claims
+@using PerfectRide.Data
+@using PerfectRide.Helpers
+@inject MaintenanceService MaintenanceService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+@* Maintenance history of one vehicle, with links to add, edit, and delete records. *@
+
+<PageTitle>Maintenance History - PerfectRide</PageTitle>
+
+<p><a class="btn btn-outline-secondary btn-sm" href="/authenticated/maintenance">&larr; Back to all vehicles</a></p>
+
+@if (_isLoading)
+{
+    <p>Loading maintenance history...</p>
+}
+else if (_vehicle is null)
+{
+    <h1>Vehicle not found</h1>
+    <p>This vehicle does not exist or does not belong to your account.</p>
+}
+else
+{
+    <h1>Maintenance History</h1>
+    <p class="lead">@VehicleName</p>
+
+    <p>
+        <a class="btn btn-primary" href="/authenticated/maintenance/add?vehicleId=@VehicleId">Add service</a>
+    </p>
+
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@_errorMessage</div>
+    }
+    @if (!string.IsNullOrEmpty(_statusMessage))
+    {
+        <div class="alert alert-success" role="status">@_statusMessage</div>
+    }
+
+    @if (_records.Count == 0)
+    {
+        <p>No services recorded for this vehicle yet.</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-striped align-middle">
+                <caption>Maintenance services for @VehicleName, newest first</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Date</th>
+                        <th scope="col">Service</th>
+                        <th scope="col">Mileage</th>
+                        <th scope="col">Cost</th>
+                        <th scope="col">Service provider</th>
+                        <th scope="col">Notes</th>
+                        <th scope="col"><span class="visually-hidden">Actions</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var record in _records)
+                    {
+                        var serviceName = DisplayNameHelper.ToDisplayName(record.MaintenanceItem);
+                        var date = record.DatePerformed.ToString("MMM d, yyyy", UsCulture);
+
+                        <tr>
+                            <td>@date</td>
+                            <td>@serviceName</td>
+                            <td>@(record.MileageTracking is null ? "—" : $"{record.MileageTracking.Mileage.ToString("N0",
+                                                                                                                    UsCulture)} mi")</td>
+                                <td>@(record.Cost?.ToString("C", UsCulture) ?? "—")</td>
+                                <td>@(record.ServiceProvider ?? "—")</td>
+                                <td>@record.Description</td>
+                                <td class="text-nowrap">
+                                    @if (_pendingDeleteId == record.Id)
+                                    {
+                                        <span class="me-2">Delete this service?</span>
+                                        <button class="btn btn-danger btn-sm" @onclick="() => DeleteAsync(record.Id)">Yes, delete</button>
+                                        <button class="btn btn-secondary btn-sm" @onclick="CancelDelete">Cancel</button>
+                                    }
+                                    else
+                                    {
+                                        <a class="btn btn-outline-primary btn-sm" href="/authenticated/maintenance/edit/@record.Id"
+                                           aria-label="Edit @serviceName on @date">Edit</a>
+                                        <button class="btn btn-outline-danger btn-sm" @onclick="() => _pendingDeleteId = record.Id"
+                                                aria-label="Delete @serviceName on @date">Delete</button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    }
+
+@code {
+    [Parameter]
+    public int VehicleId { get; set; }
+
+    // Dates, numbers, and money use US format so the app looks the same for every user.
+    private static readonly CultureInfo UsCulture = CultureInfo.GetCultureInfo("en-US");
+
+    private Vehicle? _vehicle;
+    private List<MaintenanceRecord> _records = new();
+    private string? _userId;
+    private bool _isLoading = true;
+    private int? _pendingDeleteId;
+    private string? _errorMessage;
+    private string? _statusMessage;
+
+    private string VehicleName =>
+        _vehicle is null ? string.Empty : $"{_vehicle.Year} {_vehicle.Make} {_vehicle.Model}";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _isLoading = true;
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        _userId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (!string.IsNullOrEmpty(_userId))
+        {
+            // Returns null when the vehicle belongs to another user.
+            _vehicle = await MaintenanceService.GetVehicleAsync(VehicleId, _userId);
+            if (_vehicle is not null)
+            {
+                _records = await MaintenanceService.GetRecordsForVehicleAsync(VehicleId, _userId);
+            }
+        }
+
+        _isLoading = false;
+    }
+
+    private void CancelDelete() => _pendingDeleteId = null;
+
+    private async Task DeleteAsync(int recordId)
+    {
+        _errorMessage = null;
+        _statusMessage = null;
+
+        if (_userId is null)
+        {
+            return;
+        }
+
+        try
+        {
+            bool deleted = await MaintenanceService.DeleteRecordAsync(recordId, _userId);
+            if (deleted)
+            {
+                _records = await MaintenanceService.GetRecordsForVehicleAsync(VehicleId, _userId);
+                _statusMessage = "The service was deleted.";
+            }
+            else
+            {
+                _errorMessage = "The service could not be found. It may have been deleted already.";
+            }
+        }
+        catch (Exception)
+        {
+            _errorMessage = "Something went wrong while deleting the service. Please try again.";
+        }
+        finally
+        {
+            _pendingDeleteId = null;
+        }
+    }
+}
