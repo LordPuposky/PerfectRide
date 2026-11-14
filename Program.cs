@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using PerfectRide.Components;
 using PerfectRide.Components.Account;
 using PerfectRide.Data;
+using PerfectRide.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -39,8 +40,13 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
     .AddDefaultTokenProviders();
 
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
+builder.Services.AddScoped<AnnouncementState>();
+builder.Services.AddScoped<VehicleService>();
 
 var app = builder.Build();
+
+//Temporary Vehicle Db Seed data
+await DevelopmentDataSeeder.SeedAsync(app.Services);
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
