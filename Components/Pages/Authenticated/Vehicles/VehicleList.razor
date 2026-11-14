@@ -1,0 +1,71 @@
+@page "/authenticated/vehicles"
+@using Microsoft.EntityFrameworkCore
+@using PerfectRide.Data
+@inject ApplicationDbContext Db
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>My Vehicles</PageTitle>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1>My Vehicles</h1>
+        <a href="/authenticated/vehicles/add" class="btn btn-primary">Add Vehicle</a>
+    </div>
+
+    @if (vehicles == null)
+    {
+        <p>Loading...</p>
+    }
+    else if (!vehicles.Any())
+    {
+        <p>You have no vehicles yet. Click Add Vehicle to get started.</p>
+    }
+    else
+    {
+        <div class="row">
+            @foreach (var vehicle in vehicles)
+            {
+                <div class="col-md-4 mb-3">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">
+                                <a href="/authenticated/vehicles/@vehicle.Id" class="text-white text-decoration-none">
+                                    @vehicle.Year @vehicle.Make @vehicle.Model
+                                </a>
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="card-text"><strong>Make:</strong> @vehicle.Make</p>
+                            <p class="card-text"><strong>Model:</strong> @vehicle.Model</p>
+                            <p class="card-text"><strong>Year:</strong> @vehicle.Year</p>
+                        </div>
+                        <div class="card-footer d-flex gap-2">
+                            <a href="/authenticated/vehicles/edit/@vehicle.Id" class="btn btn-secondary btn-sm">Edit</a>
+                            <a href="/authenticated/vehicles/delete/@vehicle.Id" class="btn btn-danger btn-sm">Delete</a>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private List<Vehicle>? vehicles;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        var userId = user.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        if (userId != null)
+        {
+            vehicles = await Db.Vehicles
+                .Where(v => v.UserId == userId)
+                .OrderBy(v => v.Make)
+                .ToListAsync();
+        }
+    }
+}

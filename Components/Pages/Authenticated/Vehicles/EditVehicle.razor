@@ -1,0 +1,92 @@
+@page "/authenticated/vehicles/edit/{Id:int}"
+@using Microsoft.EntityFrameworkCore
+@using PerfectRide.Data
+@inject ApplicationDbContext Db
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthStateProvider
+@rendermode InteractiveServer
+
+<PageTitle>Edit Vehicle</PageTitle>
+
+<div class="container mt-4">
+    <h1>Edit Vehicle</h1>
+
+    @if (vehicle == null)
+    {
+        <p>Loading...</p>
+    }
+    else
+    {
+        <EditForm Model="vehicle" OnValidSubmit="HandleSubmit" FormName="edit-vehicle">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger" />
+
+            <div class="mb-3">
+                <label class="form-label">Year <span class="text-danger">*</span></label>
+                <InputText class="form-control" @bind-Value="vehicle.Year" placeholder="e.g. 2017" min="1900" max="2300" />
+                <ValidationMessage For="() => vehicle.Year" class="text-danger" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Make <span class="text-danger">*</span></label>
+                <InputText class="form-control" @bind-Value="vehicle.Make" placeholder="e.g. Toyota" />
+                <ValidationMessage For="() => vehicle.Make" class="text-danger" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Model <span class="text-danger">*</span></label>
+                <InputText class="form-control" @bind-Value="vehicle.Model" placeholder="e.g. Camry" />
+                <ValidationMessage For="() => vehicle.Model" class="text-danger" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">VIN (optional)</label>
+                <InputText class="form-control" @bind-Value="vehicle.VIN" placeholder="e.g. 1HGBH41JXMN109186" />
+                <ValidationMessage For="() => vehicle.VIN" class="text-danger" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">License Plate (optional)</label>
+                <InputText class="form-control" @bind-Value="vehicle.Plate" placeholder="e.g. ABC1234" />
+                <ValidationMessage For="() => vehicle.Plate" class="text-danger" />
+            </div>
+
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+            <a href="/authenticated/vehicles" class="btn btn-secondary ms-2">Cancel</a>
+        </EditForm>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private Vehicle? vehicle;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userId = authState.User
+            .FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        if (userId != null)
+        {
+            vehicle = await Db.Vehicles
+                .FirstOrDefaultAsync(v => v.Id == Id && v.UserId == userId);
+        }
+
+        if (vehicle == null)
+        {
+            Nav.NavigateTo("/authenticated/vehicles");
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (vehicle == null) return;
+
+        Db.Vehicles.Update(vehicle);
+        await Db.SaveChangesAsync();
+        Nav.NavigateTo("/authenticated/vehicles");
+    }
+}
