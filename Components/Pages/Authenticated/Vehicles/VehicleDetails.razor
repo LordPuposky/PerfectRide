@@ -1,11 +1,9 @@
-@page "/vehicles/{Id:int}"
-@using Microsoft.AspNetCore.Authorization
+@page "/authenticated/vehicles/{Id:int}"
 @using Microsoft.EntityFrameworkCore
 @using PerfectRide.Data
 @inject ApplicationDbContext Db
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthStateProvider
-@attribute [Authorize]
 @rendermode InteractiveServer
 
 <PageTitle>Vehicle Details</PageTitle>
@@ -20,9 +18,9 @@
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h1>@vehicle.Year @vehicle.Make @vehicle.Model</h1>
             <div>
-                <a href="/vehicles/edit/@vehicle.Id" class="btn btn-secondary me-2">Edit</a>
-                <a href="/vehicles/delete/@vehicle.Id" class="btn btn-danger me-2">Delete</a>
-                <a href="/vehicles" class="btn btn-outline-secondary">Back to Vehicles</a>
+                <a href="/authenticated/vehicles/edit/@vehicle.Id" class="btn btn-secondary me-2">Edit</a>
+                <a href="/authenticated/vehicles/delete/@vehicle.Id" class="btn btn-danger me-2">Delete</a>
+                <a href="/authenticated/vehicles" class="btn btn-outline-secondary">Back to Vehicles</a>
             </div>
         </div>
 
@@ -94,7 +92,7 @@
     private Vehicle? vehicle;
     private MileageTracking? latestMileage;
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnParametersSetAsync()
     {
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         var userId = authState.User
@@ -116,7 +114,7 @@
 
         if (vehicle == null)
         {
-            Nav.NavigateTo("/vehicles");
+            Nav.NavigateTo("/authenticated/vehicles");
         }
     }
 }

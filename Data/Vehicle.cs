@@ -7,7 +7,7 @@ public class Vehicle
     public int Id { get; set; }
 
     [Required, Range(1900, 2300)]
-    public int? Year { get; set; }
+    public string? Year { get; set; }
     [StringLength(30), Required]
     public string Make { get; set; } = string.Empty;
     [StringLength(30), Required]

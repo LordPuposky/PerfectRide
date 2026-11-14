@@ -42,10 +42,10 @@ public static class DevelopmentDataSeeder
         {
             vehicles = new List<Vehicle>
             {
-                new() { Year = 2018, Make = "Toyota", Model = "Camry", UserId = user.Id },
-                new() { Year = 2021, Make = "Ford", Model = "F-150", UserId = user.Id },
-                new() { Year = 2016, Make = "Honda", Model = "CR-V", UserId = user.Id },
-                new() { Year = 2023, Make = "Subaru", Model = "Outback", UserId = user.Id }
+                new() { Year = "2018", Make = "Toyota", Model = "Camry", UserId = user.Id },
+                new() { Year = "2021", Make = "Ford", Model = "F-150", UserId = user.Id },
+                new() { Year = "2016", Make = "Honda", Model = "CR-V", UserId = user.Id },
+                new() { Year = "2023", Make = "Subaru", Model = "Outback", UserId = user.Id }
             };
 
             await db.Vehicles.AddRangeAsync(vehicles);
@@ -80,7 +80,7 @@ public static class DevelopmentDataSeeder
 
         // Establish a reasonable starting odometer reading.
         var startingMileage =
-            30000 + Math.Max(0, DateTime.Today.Year - vehicle.Year) * 10000;
+            30000 + Math.Max(0, DateTime.Today.Year - Convert.ToInt32(vehicle.Year)) * 10000;
 
         // -----------------------------------------
         // MAINTENANCE SCHEDULES

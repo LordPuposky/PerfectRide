@@ -1,10 +1,8 @@
-@page "/vehicles/add"
-@using Microsoft.AspNetCore.Authorization
+@page "/authenticated/vehicles/add"
 @using PerfectRide.Data
 @inject ApplicationDbContext Db
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthStateProvider
-@attribute [Authorize]
 @rendermode InteractiveServer
 
 <PageTitle>Add Vehicle</PageTitle>
@@ -18,7 +16,7 @@
 
         <div class="mb-3">
             <label class="form-label">Year <span class="text-danger">*</span></label>
-            <InputNumber class="form-control" @bind-Value="vehicle.Year" placeholder="e.g. 2017" min="1900"
+            <InputText class="form-control" @bind-Value="vehicle.Year" placeholder="e.g. 2017" min="1900"
                          max="2300" />
             <ValidationMessage For="() => vehicle.Year" class="text-danger" />
         </div>
@@ -58,20 +56,18 @@
         </div>
 
         <button type="submit" class="btn btn-primary">Save Vehicle</button>
-        <a href="/vehicles" class="btn btn-secondary ms-2">Cancel</a>
+        <a href="/authorized/vehicles" class="btn btn-secondary ms-2">Cancel</a>
     </EditForm>
 </div>
 
 @code {
-    private Vehicle vehicle = new() { UserId = "pending" };
+    private Vehicle vehicle = new();
     private int? currentMileage = null;
     private bool mileageError = false;
 
-    private async Task HandleSubmit()
-    {
-        mileageError = currentMileage == null || currentMileage < 0;
-        if (mileageError) return;
 
+    protected override async Task OnInitializedAsync()
+    {
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         var userId = authState.User
             .FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
@@ -79,21 +75,54 @@
         if (userId != null)
         {
             vehicle.UserId = userId;
-            Db.Vehicles.Add(vehicle);
-            await Db.SaveChangesAsync();
+        }
+        else
+        {
+            Nav.NavigateTo("/account/login");
+        }
+    }
 
-            var mileageEntry = new MileageTracking
+    private async Task HandleSubmit()
+    {
+            mileageError = currentMileage == null || currentMileage < 0 || currentMileage > 999999;
+            if (mileageError) return;
+
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userId = authState.User
+                .FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+            if (userId != null)
             {
-                VehicleId = vehicle.Id,
-                DateRecorded = DateOnly.FromDateTime(DateTime.Today),
-                Mileage = currentMileage!.Value,
-                Source = MileageSource.Manual
+                await using var transaction = await Db.Database.BeginTransactionAsync(); 
+
+                try
+                {
+                    Db.Vehicles.Add(vehicle);
+                    await Db.SaveChangesAsync();
+
+                    var mileageEntry = new MileageTracking
+                        {
+                            VehicleId = vehicle.Id,
+                            DateRecorded = DateOnly.FromDateTime(DateTime.Today),
+                            Mileage = currentMileage!.Value,
+                            Source = MileageSource.Manual
+                        };
+
+                    Db.MileageTrackings.Add(mileageEntry);
+                    await Db.SaveChangesAsync();
+                    await transaction.CommitAsync();
+                    Nav.NavigateTo("/authenticated/vehicles");
+                }
+                catch
+                {
+                    await transaction.RollbackAsync();
+                    throw;
+                }
+
+            } else
+            {
+                Nav.NavigateTo("/account/login"); 
             };
-
-            Db.MileageTrackings.Add(mileageEntry);
-            await Db.SaveChangesAsync();
-
-            Nav.NavigateTo("/vehicles");
         }
     }
 }

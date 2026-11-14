@@ -1,11 +1,9 @@
-@page "/vehicles/delete/{Id:int}"
-@using Microsoft.AspNetCore.Authorization
+@page "/authenticated/vehicles/delete/{Id:int}"
 @using Microsoft.EntityFrameworkCore
 @using PerfectRide.Data
 @inject ApplicationDbContext Db
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthStateProvider
-@attribute [Authorize]
 @rendermode InteractiveServer
 
 <PageTitle>Delete Vehicle</PageTitle>
@@ -44,7 +42,7 @@
         </div>
 
         <button class="btn btn-danger" @onclick="HandleDelete">Yes, Delete Vehicle</button>
-        <a href="/vehicles" class="btn btn-secondary ms-2">Cancel</a>
+        <a href="/authenticated/vehicles" class="btn btn-secondary ms-2">Cancel</a>
     }
 </div>
 
@@ -68,7 +66,7 @@
 
         if (vehicle == null)
         {
-            Nav.NavigateTo("/vehicles");
+            Nav.NavigateTo("/authenticated/vehicles");
         }
     }
 
@@ -78,6 +76,6 @@
 
         Db.Vehicles.Remove(vehicle);
         await Db.SaveChangesAsync();
-        Nav.NavigateTo("/vehicles");
+        Nav.NavigateTo("/authenticated/vehicles");
     }
 }
