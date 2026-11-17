@@ -1,9 +1,10 @@
 @page "/authenticated/vehicles"
 @using Microsoft.EntityFrameworkCore
 @using PerfectRide.Data
-@inject ApplicationDbContext Db
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthStateProvider
+@inject VehicleService VehicleService
+@using PerfectRide.Services
 
 <PageTitle>My Vehicles</PageTitle>
 
@@ -36,7 +37,7 @@
                             </h5>
                         </div>
                         <div class="card-body">
-                            <p class="text-muted small">Click to view details</p>
+                            <a href="/authenticated/vehicles/@vehicle.Id" class="text-muted small">Click to view details</a>
                         </div>
                         <div class="card-footer d-flex gap-2">
                             <a href="/authenticated/vehicles/edit/@vehicle.Id" class="btn btn-secondary btn-sm">Edit</a>
@@ -60,10 +61,7 @@
 
         if (userId != null)
         {
-            vehicles = await Db.Vehicles
-                .Where(v => v.UserId == userId)
-                .OrderBy(v => v.Make)
-                .ToListAsync();
+            vehicles = await VehicleService.GetVehiclesAsync(userId);
         }
     }
 }
