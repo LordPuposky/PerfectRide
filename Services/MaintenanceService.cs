@@ -1,6 +1,7 @@
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using PerfectRide.Data;
+using PerfectRide.Helpers;
 
 namespace PerfectRide.Services;
 
@@ -207,6 +208,25 @@ public class MaintenanceService(ApplicationDbContext context)
         if (record.MaintenanceItem == MaintenanceItem.Other && string.IsNullOrWhiteSpace(record.Description))
         {
             throw new ArgumentException("A description is required when the maintenance item is Other.");
+        }
+
+        // The same service can't be logged twice for the same vehicle on the same date.
+        // "Other" is allowed more than once, because its description tells the services apart.
+        // When editing, the record itself is ignored.
+        if (record.MaintenanceItem != MaintenanceItem.Other)
+        {
+            bool isDuplicate = await context.MaintenanceRecords.AnyAsync(r =>
+                r.VehicleId == record.VehicleId &&
+                r.DatePerformed == record.DatePerformed &&
+                r.MaintenanceItem == record.MaintenanceItem &&
+                r.Id != record.Id);
+
+            if (isDuplicate)
+            {
+                var serviceName = DisplayNameHelper.ToDisplayName(record.MaintenanceItem);
+                throw new ArgumentException(
+                $"{serviceName} is already recorded for this vehicle on {date}. Please edit that record instead.");
+            }
         }
 
         if (record.MaintenanceScheduleId is int scheduleId)
