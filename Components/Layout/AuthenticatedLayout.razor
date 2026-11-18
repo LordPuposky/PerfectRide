@@ -1,0 +1,49 @@
+@using PerfectRide.Services
+@inherits LayoutComponentBase
+
+@inject AnnouncementState AnnouncementState
+@implements IDisposable
+
+<div class="page">
+    <div class="sidebar">
+        <AuthenticatedNavMenu />
+    </div>
+
+    <main>
+        <div class="top-row px-4 d-flex align-items-center">
+            <AnnouncementBanner
+                Message="@AnnouncementState.Message"
+                IsAnimated="@AnnouncementState.IsAnimated" 
+                MessageType="@AnnouncementState.MessageType"/>
+
+            <a href="/about" class="ms-3">About</a>
+        </div>
+
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>
+
+@code {
+protected override void OnInitialized()
+{
+    AnnouncementState.OnChange += HandleAnnouncementChanged;
+}
+
+private void HandleAnnouncementChanged()
+{
+    _ = InvokeAsync(StateHasChanged);
+}
+
+public void Dispose()
+{
+    AnnouncementState.OnChange -= HandleAnnouncementChanged;
+}
+}

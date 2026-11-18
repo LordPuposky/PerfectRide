@@ -1,0 +1,31 @@
+@page "/authenticated/dashboard"
+@using PerfectRide.Components.Shared.DashboardCards
+@inject AnnouncementState AnnouncementState
+
+<div>
+    <section>
+       <VehicleCard/>
+    </section>
+    <section>
+       <MaintenanceCard/>
+    </section>
+    <section>
+        <h1>Mileage and Fuel</h1>
+    </section>
+    <section>
+        <h1>Documents</h1>
+    </section>
+</div>
+
+@code{
+
+    string dashboardMessage = ""; 
+   protected override void OnInitialized()
+{
+    AnnouncementState.SetAnnouncement(
+        $"Dashboard: {dashboardMessage}",
+        true,
+        "info"
+    );
+}
+}

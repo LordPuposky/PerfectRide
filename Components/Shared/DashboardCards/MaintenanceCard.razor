@@ -1,0 +1,131 @@
+@using System.Security.Claims
+@using PerfectRide.Data
+@using PerfectRide.Services
+@using System
+@using System.Globalization
+
+@inject VehicleService VehicleService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <h1 class="card-title">Maintenance</h1>
+
+        @if (_isLoading)
+        {
+            <p>Loading Maintenance Summary...</p>
+        }
+        else if (_maintenanceRecords.Count == 0)
+        {
+            <p>You haven't added any Maintenance Records yet.</p>
+        }
+        else
+        {
+                <div class="maintenance-card mb-3">
+                    <div class="maintenance-card-header">
+                    @{
+                        (int numServices, int vehiclesServiced, decimal totalCost, decimal averageCost) = CalculateServicesStatistics(365);
+                    }
+                    <strong>Maintenance Summary</strong>
+                    </div>
+
+                    <div class="maintenance-card-body">
+                        <div class="maintenance-info">
+                        <strong>@numServices</strong>
+                        <strong>Services performed</strong>
+                        </div>
+                    </div>
+
+                    <div class="maintenance-card-body">
+                        <div class="maintenance-info">
+                        <strong>@vehiclesServiced</strong>
+                        <strong>Vehicles Serviced</strong>
+                        </div>
+                    </div>
+
+                    <div class="maintenance-card-body">
+                        <div class="maintenance-info">
+                        <strong>
+                            @totalCost.ToString("C", CultureInfo.GetCultureInfo("en-US"))
+                            </strong>
+                        <strong>Total Cost</strong>
+                        </div>
+                    </div>
+
+                    <div class="maintenance-card-body">
+                        <div class="maintenance-info">
+                        <strong>
+                            @averageCost.ToString("C", CultureInfo.GetCultureInfo("en-US"))
+                        </strong>
+                        <strong>Average Cost per Service</strong>
+                        </div>
+                    </div>
+                </div>
+            }
+    </div>
+</div>
+
+@code {
+    private List<Vehicle> _vehicles = new();
+    private bool _isLoading = true;
+
+    private List<MaintenanceRecord> _maintenanceRecords = new(); 
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (!string.IsNullOrEmpty(userId))
+        {
+            _vehicles = await VehicleService.GetVehiclesAsync(userId);
+            _maintenanceRecords = new();  
+
+            _maintenanceRecords = _vehicles
+            .SelectMany(v => v.MaintenanceRecords)
+            .OrderByDescending(r => r.DatePerformed)
+            .ToList();
+        }
+
+        _isLoading = false;
+
+    }
+    (int, int, decimal, decimal) CalculateServicesStatistics (int periodLength)
+    {
+        DateOnly today = DateOnly.FromDateTime(DateTime.Now);
+        DateOnly beginningDate = today.AddDays(-(periodLength));
+
+        List<MaintenanceRecord> relevantRecords = new();
+        relevantRecords = _maintenanceRecords
+        .Where(r => r.DatePerformed >= beginningDate)
+        .OrderByDescending(r => r.DatePerformed)
+        .ToList(); 
+
+        int serviceCount = relevantRecords.Count(); 
+
+        int vehicleCount = relevantRecords
+        .Select(r => r.VehicleId)
+        .Distinct()
+        .Count(); 
+
+        decimal totalCost = 0; 
+        decimal averageCost = 0;
+        int maintenanceCount = 0; 
+
+        if (relevantRecords.Count() > 0)
+        {
+            foreach (MaintenanceRecord r in relevantRecords)
+            {
+                totalCost += r.Cost ?? 0;
+                maintenanceCount +=1; 
+            }
+            averageCost = totalCost/maintenanceCount; 
+
+        }
+
+        return (serviceCount, vehicleCount, totalCost, averageCost); 
+
+    }
+}

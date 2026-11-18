@@ -1,7 +1,49 @@
 ﻿@page "/"
+@using PerfectRide.Services
+
+@inject AnnouncementState AnnouncementState
+@rendermode InteractiveServer
+
+
+@inject NavigationManager NavigationManager
 
 <PageTitle>Home</PageTitle>
 
-<h1>Hello, world!</h1>
+<h1 class="text-center">Welcome to PerfectRide</h1>
+<p class="text-center">Your one stop shop for automotive tracking!</p>
+<div class="d-flex flex-row justify-content-between align-items-center m-auto">
+    <div class="p-2 secondaryBorder text-center">
+        <h2>Have an account? </h2>
+        <button class="btn btn-primary text-center" @onclick="LoginRedirect">Login</button>
+        <h2>to manage your vehicles!</h2>
+    </div>
+    <div>
+        <img src="/lib/images/perfectride-icon-final-dark.svg" alt="PerfectRide logo." class="max200">
+    </div>
+    <div class="justify-content-right text-center secondaryBorder p-2">
+        <h2>No account?<br />  Please Register for an account.</h2>
+        <button class="btn btn-primary"@onclick="RegistrationRedirect">Register Now!</button>
+    </div>
+</div>
 
-Welcome to your new app.
+@code{
+    //Redirect to registration
+    private void RegistrationRedirect()
+    {
+        NavigationManager.NavigateTo("/Account/Register"); 
+    }
+
+    private void LoginRedirect()
+    {
+        NavigationManager.NavigateTo("/Account/Login"); 
+    }
+
+    protected override void OnInitialized()
+{
+    AnnouncementState.SetAnnouncement(
+        "Join PerfectRide today! Register now!",
+        true,
+        "info"
+    );
+}
+}

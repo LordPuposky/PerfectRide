@@ -1,0 +1,44 @@
+.vehicle-card {
+  border: 1px solid #dce3e8;
+  border-radius: 10px;
+  overflow: hidden;
+  background-color: #ffffff;
+}
+
+.vehicle-card-header {
+  background-color: var(--primaryBackground);
+  color: var(--white);
+  padding: 14px 18px;
+  font-size: 1.1rem;
+  border-bottom: 3px solid var(--accent);
+}
+
+.vehicle-card-body {
+  padding: 18px;
+}
+
+.vehicle-info {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.vehicle-info > div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: var(--mainText);
+}
+
+.info-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--secondaryBackground);
+}
+
+@media (max-width: 576px) {
+  .vehicle-info {
+    grid-template-columns: 1fr;
+  }
+}
