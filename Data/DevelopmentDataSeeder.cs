@@ -80,7 +80,7 @@ public static class DevelopmentDataSeeder
 
         // Establish a reasonable starting odometer reading.
         var startingMileage =
-            30000 + Math.Max(0, DateTime.Today.Year - vehicle.Year) * 10000;
+            30000 + Math.Max(0, DateTime.Today.Year - Convert.ToInt32(vehicle.Year)) * 10000;
 
         // -----------------------------------------
         // MAINTENANCE SCHEDULES
