@@ -23,7 +23,7 @@
 
             <div class="mb-3">
                 <label class="form-label">Year <span class="text-danger">*</span></label>
-                <InputText class="form-control" @bind-Value="vehicle.Year" placeholder="e.g. 2017" min="1900" max="2300" />
+                <InputNumber class="form-control" @bind-Value="vehicle.Year" placeholder="e.g. 2017" min="1900" max="2300" />
                 <ValidationMessage For="() => vehicle.Year" class="text-danger" />
             </div>
 
