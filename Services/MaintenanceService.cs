@@ -109,7 +109,11 @@ public class MaintenanceService(ApplicationDbContext context)
 
         // The vehicle of a record cannot be changed.
         updated.VehicleId = existing.VehicleId;
-        await ValidateAsync(updated, mileage, userId);
+        // The form doesn't edit the schedule link. Keep it, unless the service type changed:
+        // a schedule belongs to one service type, so the old link would no longer be valid.
+        updated.MaintenanceScheduleId = updated.MaintenanceItem == existing.MaintenanceItem
+        ? existing.MaintenanceScheduleId
+        : null;
 
         existing.MaintenanceItem = updated.MaintenanceItem;
         existing.Description = updated.Description;
