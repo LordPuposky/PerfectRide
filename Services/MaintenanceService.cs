@@ -112,8 +112,10 @@ public class MaintenanceService(ApplicationDbContext context)
         // The form doesn't edit the schedule link. Keep it, unless the service type changed:
         // a schedule belongs to one service type, so the old link would no longer be valid.
         updated.MaintenanceScheduleId = updated.MaintenanceItem == existing.MaintenanceItem
-        ? existing.MaintenanceScheduleId
-        : null;
+            ? existing.MaintenanceScheduleId
+            : null;
+
+        await ValidateAsync(updated, mileage, userId);
 
         existing.MaintenanceItem = updated.MaintenanceItem;
         existing.Description = updated.Description;
@@ -229,7 +231,7 @@ public class MaintenanceService(ApplicationDbContext context)
             {
                 var serviceName = DisplayNameHelper.ToDisplayName(record.MaintenanceItem);
                 throw new ArgumentException(
-                $"{serviceName} is already recorded for this vehicle on {date}. Please edit that record instead.");
+                    $"{serviceName} is already recorded for this vehicle on {date}. Please edit that record instead.");
             }
         }
 
