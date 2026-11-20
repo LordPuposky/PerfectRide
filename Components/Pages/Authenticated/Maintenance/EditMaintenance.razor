@@ -1,0 +1,111 @@
+@page "/authenticated/maintenance/edit/{Id:int}"
+@rendermode InteractiveServer
+@using System.Security.Claims
+@using Microsoft.EntityFrameworkCore
+@using PerfectRide.Data
+@using PerfectRide.Models
+@inject MaintenanceService MaintenanceService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager Navigation
+
+@* Page to edit an existing maintenance record. Reuses the shared MaintenanceForm. *@
+
+<PageTitle>Edit Service - PerfectRide</PageTitle>
+
+@if (_isLoading)
+{
+    <p>Loading...</p>
+}
+else if (_record is null || _model is null)
+{
+    <h1>Service not found</h1>
+    <p>This service does not exist or does not belong to your account.</p>
+    <p><a class="btn btn-outline-secondary" href="/authenticated/maintenance">&larr; Back to all vehicles</a></p>
+}
+else
+{
+    <h1>Edit Service</h1>
+    <p class="lead">@VehicleName</p>
+
+    <MaintenanceForm Model="_model" OnValidSubmit="SaveAsync" SubmitText="Save changes" CancelUrl="@HistoryUrl"
+                     IsSaving="_isSaving" ErrorMessage="@_errorMessage" />
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private MaintenanceRecord? _record;
+    private MaintenanceFormModel? _model;
+    private string? _userId;
+    private bool _isLoading = true;
+    private bool _isSaving;
+    private string? _errorMessage;
+
+    private string VehicleName => _record?.Vehicle is null
+        ? string.Empty
+        : $"{_record.Vehicle.Year} {_record.Vehicle.Make} {_record.Vehicle.Model}";
+
+    private string HistoryUrl => $"/authenticated/maintenance/{_record?.VehicleId}";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        _userId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (!string.IsNullOrEmpty(_userId))
+        {
+            // Returns null when the record belongs to another user.
+            _record = await MaintenanceService.GetRecordAsync(Id, _userId);
+            if (_record is not null)
+            {
+                _model = MaintenanceFormModel.FromRecord(_record);
+            }
+        }
+
+        _isLoading = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_record is null || _model is null || _userId is null || _isSaving)
+        {
+            return;
+        }
+
+        _isSaving = true;
+        _errorMessage = null;
+
+        try
+        {
+            var updated = new MaintenanceRecord { Id = _record.Id, VehicleId = _record.VehicleId };
+            _model.ApplyTo(updated);
+
+            bool saved = await MaintenanceService.UpdateRecordAsync(updated, _model.Mileage!.Value, _userId);
+            if (saved)
+            {
+                Navigation.NavigateTo(HistoryUrl);
+            }
+            else
+            {
+                _errorMessage = "The service could not be found. It may have been deleted.";
+            }
+        }
+        catch (ArgumentException ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        catch (DbUpdateException)
+        {
+            _errorMessage = "The changes could not be saved. If another service has the same date and mileage, please check that record.";
+        }
+        catch (Exception)
+        {
+            _errorMessage = "Something went wrong while saving the changes. Please try again.";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+}

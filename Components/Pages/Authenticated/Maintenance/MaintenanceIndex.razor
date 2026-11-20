@@ -1,0 +1,77 @@
+@page "/authenticated/maintenance"
+@using System.Globalization
+@using System.Security.Claims
+@using PerfectRide.Data
+@inject VehicleService VehicleService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+@* Entry point for maintenance records: lists the user's vehicles
+   so they can open the maintenance history of each one. *@
+
+<PageTitle>Maintenance Records - PerfectRide</PageTitle>
+
+<h1>Maintenance Records</h1>
+<p>Choose a vehicle to see its maintenance history or to log a new service.</p>
+
+@if (_isLoading)
+{
+    <p>Loading vehicles...</p>
+}
+else if (_vehicles.Count == 0)
+{
+    <p>You don't have any vehicles yet. Add a vehicle first to start logging maintenance.</p>
+}
+else
+{
+    <ul class="list-unstyled">
+        @foreach (var vehicle in _vehicles)
+        {
+            var vehicleName = $"{vehicle.Year} {vehicle.Make} {vehicle.Model}";
+            var lastService = vehicle.MaintenanceRecords
+                .OrderByDescending(r => r.DatePerformed)
+                .FirstOrDefault();
+
+            <li class="card mb-3">
+                <div class="card-body">
+                    <h2 class="h5 card-title">@vehicleName</h2>
+                    <p class="mb-2">
+                        @ServiceCountText(vehicle.MaintenanceRecords.Count)
+                        @if (lastService is not null)
+                        {
+                            <span> · Last service: @lastService.DatePerformed.ToString("MMM d, yyyy", UsCulture)</span>
+                        }
+                    </p>
+                    <a class="btn btn-primary" href="/authenticated/maintenance/@vehicle.Id"
+                       aria-label="View maintenance history for @vehicleName">
+                        View history
+                    </a>
+                </div>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    // Dates use US format so the app looks the same for every user.
+    private static readonly CultureInfo UsCulture = CultureInfo.GetCultureInfo("en-US");
+
+    private List<Vehicle> _vehicles = new();
+    private bool _isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var userId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        // VehicleService only returns vehicles that belong to this user.
+        if (!string.IsNullOrEmpty(userId))
+        {
+            _vehicles = await VehicleService.GetVehiclesAsync(userId);
+        }
+
+        _isLoading = false;
+    }
+
+    private static string ServiceCountText(int count) =>
+        count == 1 ? "1 service recorded" : $"{count} services recorded";
+}
