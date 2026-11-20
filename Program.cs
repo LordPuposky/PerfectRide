@@ -44,6 +44,8 @@ builder.Services.AddScoped<AnnouncementState>();
 builder.Services.AddScoped<VehicleService>();
 builder.Services.AddScoped<MileageTrackingService>();
 builder.Services.AddScoped<MaintenanceService>();
+builder.Services.AddScoped<MileageService>();
+builder.Services.AddScoped<FuelService>();
 
 var app = builder.Build();
 

@@ -10,8 +10,6 @@ public class VehicleService(ApplicationDbContext context)
         return await context.Vehicles
         .AsNoTracking()
         .Where(v => v.UserId == userId)
-        .Include(v => v.MileageTrackings)
-        .Include(v => v.MaintenanceRecords)
         .OrderBy(v => v.Year)
         .ThenBy(v => v.Make)
         .ToListAsync();

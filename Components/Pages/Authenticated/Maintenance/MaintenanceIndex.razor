@@ -3,6 +3,7 @@
 @using System.Security.Claims
 @using PerfectRide.Data
 @inject VehicleService VehicleService
+@inject MaintenanceService MaintenanceService
 @inject AuthenticationStateProvider AuthenticationStateProvider
 
 @* Entry point for maintenance records: lists the user's vehicles
@@ -27,9 +28,7 @@ else
         @foreach (var vehicle in _vehicles)
         {
             var vehicleName = $"{vehicle.Year} {vehicle.Make} {vehicle.Model}";
-            var lastService = vehicle.MaintenanceRecords
-                .OrderByDescending(r => r.DatePerformed)
-                .FirstOrDefault();
+            var lastService = _maintenanceRecords.FirstOrDefault();
 
             <li class="card mb-3">
                 <div class="card-body">
@@ -56,6 +55,7 @@ else
     private static readonly CultureInfo UsCulture = CultureInfo.GetCultureInfo("en-US");
 
     private List<Vehicle> _vehicles = new();
+    private List<MaintenanceRecord> _maintenanceRecords = new(); 
     private bool _isLoading = true;
 
     protected override async Task OnInitializedAsync()
@@ -67,6 +67,10 @@ else
         if (!string.IsNullOrEmpty(userId))
         {
             _vehicles = await VehicleService.GetVehiclesAsync(userId);
+            foreach (Vehicle v in _vehicles)
+            {
+                _maintenanceRecords = await MaintenanceService.GetRecordsForVehicleAsync(v.Id, userId); 
+            }
         }
 
         _isLoading = false;

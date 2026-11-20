@@ -5,11 +5,13 @@
 @using System.Globalization
 
 @inject VehicleService VehicleService
+@inject MaintenanceService MaintenanceService
 @inject AuthenticationStateProvider AuthenticationStateProvider
 
 <div class="card shadow-sm">
     <div class="card-body">
         <h1 class="card-title">Maintenance</h1>
+        <p><a class="btn btn-outline-secondary btn-sm" href="/authenticated/maintenance">&rArr; Go to Maintenance</a></p>
 
         @if (_isLoading)
         {
@@ -66,7 +68,7 @@
 </div>
 
 @code {
-    private List<Vehicle> _vehicles = new();
+    private List<Vehicle> _userVehicles = new();
     private bool _isLoading = true;
 
     private List<MaintenanceRecord> _maintenanceRecords = new(); 
@@ -80,13 +82,14 @@
 
         if (!string.IsNullOrEmpty(userId))
         {
-            _vehicles = await VehicleService.GetVehiclesAsync(userId);
-            _maintenanceRecords = new();  
+            _userVehicles = await VehicleService.GetVehiclesAsync(userId);
+            foreach (Vehicle v in _userVehicles)
+            {
+                List<MaintenanceRecord> vehicleRecords = new List<MaintenanceRecord>();  
+                vehicleRecords= await MaintenanceService.GetRecordsForVehicleAsync(v.Id, userId);
 
-            _maintenanceRecords = _vehicles
-            .SelectMany(v => v.MaintenanceRecords)
-            .OrderByDescending(r => r.DatePerformed)
-            .ToList();
+                _maintenanceRecords.AddRange(vehicleRecords); 
+            }
         }
 
         _isLoading = false;

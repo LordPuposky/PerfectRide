@@ -4,11 +4,17 @@
 @using PerfectRide.Helpers
 
 @inject VehicleService VehicleService
+@inject MaintenanceService MaintenanceService
+@inject MileageService MileageService
+@inject FuelService FuelService
+
 @inject AuthenticationStateProvider AuthenticationStateProvider
+
 
 <div class="card shadow-sm">
     <div class="card-body">
         <h1 class="card-title">My Vehicles</h1>
+       <p><a class="btn btn-outline-secondary btn-sm" href="/authenticated/vehicles">&rArr; Go to Vehicles</a></p>
 
         @if (_isLoading)
         {
@@ -45,6 +51,38 @@
                                     <span>No Mileage Recorded</span>
                                 }
                             </div>
+                            <div>
+                                <span class="info-label">Fuel fill-ups</span>
+                                @if (_fillUps.HasValue)
+                                {
+                                <strong>@_fillUps entries</strong>
+                                } else
+                                {
+                                    <span>No fill-ups recorded</span>
+                                }
+
+                            </div>
+                            <div>
+                                <span class="info-label">Average fuel economy</span>
+                                @if (_averageFuelMileage.HasValue)
+                                {
+                                <strong>@($"{_averageFuelMileage:F1} MPG")</strong>
+                                } else
+                                {
+                                    <span>Not enough information to calculate fuel mileage</span>
+                                }
+                            </div>
+                            <div>
+                                <span class="info-label">Maintenance Schedules</span>
+                                @if (_totalSchedules.HasValue)
+                                {
+                                <strong>@_totalSchedules active</strong>
+                                } else
+                                {
+                                    <span>Vehicle has no maintenance schedules</span>
+                                }
+
+                            </div>
 
                             <div>
                                 <span class="info-label">Last Maintenance</span>
@@ -59,50 +97,60 @@
 </div>
 
 @code {
+    private int? _totalSchedules = null;
+    private decimal? _averageFuelMileage = null;
+    private int? _fillUps = null;  
+    private decimal? _totalMiles = null; 
     private List<Vehicle> _vehicles = new();
+    private List<MaintenanceRecord> _maintenanceRecords = new();
+    private List<MileageTracking> _mileageTrackings = new(); 
+    private List<FuelRecord> _fuelRecords = new(); 
     private bool _isLoading = true;
 
+    private FuelMileageStatistics _fuelMileageStatistics = new(); 
     protected override async Task OnInitializedAsync()
+
     {
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
         var user = authState.User;
 
         var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
+
         if (!string.IsNullOrEmpty(userId))
         {
             _vehicles = await VehicleService.GetVehiclesAsync(userId);
-        }
-
-        _isLoading = false;
-
-    }
-    int GetLatestMileage(Vehicle vehicle)
-    {
-        int mileage = 0; 
-        foreach (var record in vehicle.MileageTrackings)
-        {
-            if (record.Mileage > mileage)
+            foreach (Vehicle v in _vehicles)
             {
-                mileage = record.Mileage; 
+
+                List<MaintenanceSchedule> vehicleMaintenanceSchedules = await MaintenanceService.GetMaintenanceSchedulesForVehicleAsync(v.Id, userId);
+                List<FuelRecord> vehicleFuelRecords = await FuelService.GetFuelRecordsForVehicleAsync(v.Id, userId);
+                List<MileageTracking> vehicleMileageTrackings = await MileageService.GetMileageForVehicle(v.Id, userId);
+                List<MaintenanceRecord> vehicleRecords = await MaintenanceService.GetRecordsForVehicleAsync(v.Id, userId);
+                _maintenanceRecords.AddRange(vehicleRecords);
+                _mileageTrackings.AddRange(vehicleMileageTrackings);
+                _fuelRecords.AddRange(vehicleFuelRecords);
+
+                (_averageFuelMileage, _fillUps) = _fuelMileageStatistics.GetFuelMileageStatistics(vehicleFuelRecords, vehicleMileageTrackings, userId);
+
             }
         }
+    _isLoading = false;
+    }
+
+
+    
+    int? GetLatestMileage(Vehicle vehicle)
+    {
+        MileageTracking? latest = _mileageTrackings.FirstOrDefault( m => m.VehicleId == vehicle.Id);
+        int? mileage = latest?.Mileage;
+
         return mileage;
     }
-    string? GetLatestMaintenance(Vehicle vehicle)
+    private string GetLatestMaintenance(Vehicle vehicle)
     {
-        MaintenanceRecord? latest = null; 
-        foreach (MaintenanceRecord record in vehicle.MaintenanceRecords)
-        {
-            if (latest == null)
-            {
-                latest = record;
-            } 
-            if (latest.DatePerformed < record.DatePerformed)
-            {
-                latest = record;
-            }
-        }
+        MaintenanceRecord? latest = _maintenanceRecords.FirstOrDefault(r => r.VehicleId == vehicle.Id); 
+
         if (latest != null)
         {
             string returnString = $"{DisplayNameHelper.ToDisplayName(latest.MaintenanceItem)} on {latest.DatePerformed.ToShortDateString()}";  

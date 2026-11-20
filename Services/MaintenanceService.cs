@@ -29,6 +29,19 @@ public class MaintenanceService(ApplicationDbContext context)
     }
 
     /// <summary>
+    /// Returns one Maintenance Schedules for one vehicle. 
+    /// Returns an empty list if the vehicle has no maintenance schedules.
+    /// </summary>
+    public async Task<List<MaintenanceSchedule>> GetMaintenanceSchedulesForVehicleAsync(int vehicleId, string userId)
+    {
+        return await context.MaintenanceSchedules
+        .AsNoTracking()
+        .Where(s => s.VehicleId == vehicleId && s.Vehicle!.UserId == userId)
+        .ToListAsync();
+    }
+
+
+    /// <summary>
     /// Returns one maintenance record, or null if it does not exist
     /// or belongs to another user.
     /// </summary>
@@ -182,7 +195,7 @@ public class MaintenanceService(ApplicationDbContext context)
         // When editing, the record's own reading is ignored.
         var otherReadings = context.MileageTrackings
             .Where(m => m.VehicleId == record.VehicleId)
-            .Where(m => m.MaintenanceRecord == null || m.MaintenanceRecord.Id != record.Id);
+            .Where(m => m.MaintenanceRecords == null); //|| m.MaintenanceRecords.Id != record.Id);
 
         var usCulture = CultureInfo.GetCultureInfo("en-US");
         var date = record.DatePerformed.ToString("MMM d, yyyy", usCulture);
