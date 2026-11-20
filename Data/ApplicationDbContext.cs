@@ -25,8 +25,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         //MaintenanceRecord -> MileageTracking
         modelBuilder.Entity<MaintenanceRecord>()
             .HasOne(r => r.MileageTracking)
-            .WithOne(m => m.MaintenanceRecord)
-            .HasForeignKey<MaintenanceRecord>(r => r.MileageTrackingId)
+            .WithMany(m => m.MaintenanceRecords)
+            .HasForeignKey(r => r.MileageTrackingId)
             .IsRequired()
             .OnDelete(DeleteBehavior.NoAction);
         //No MileageTracking entries with same vehicle, date, and mileage    

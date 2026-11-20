@@ -21,6 +21,6 @@ public class MileageTracking
     [Required]
     public MileageSource Source { get; set; }
     public FuelRecord? FuelRecord { get; set; }
-    public MaintenanceRecord? MaintenanceRecord { get; set; }
+    public ICollection<MaintenanceRecord>? MaintenanceRecords { get; set; } = new List<MaintenanceRecord>();
     public Vehicle? Vehicle { get; set; }
 }

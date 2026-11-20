@@ -352,8 +352,7 @@ namespace PerfectRide.Migrations
 
                     b.HasIndex("MaintenanceScheduleId");
 
-                    b.HasIndex("MileageTrackingId")
-                        .IsUnique();
+                    b.HasIndex("MileageTrackingId");
 
                     b.HasIndex("VehicleId");
 
@@ -593,8 +592,8 @@ namespace PerfectRide.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("PerfectRide.Data.MileageTracking", "MileageTracking")
-                        .WithOne("MaintenanceRecord")
-                        .HasForeignKey("PerfectRide.Data.MaintenanceRecord", "MileageTrackingId")
+                        .WithMany("MaintenanceRecords")
+                        .HasForeignKey("MileageTrackingId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
@@ -658,7 +657,7 @@ namespace PerfectRide.Migrations
                 {
                     b.Navigation("FuelRecord");
 
-                    b.Navigation("MaintenanceRecord");
+                    b.Navigation("MaintenanceRecords");
                 });
 
             modelBuilder.Entity("PerfectRide.Data.Vehicle", b =>
