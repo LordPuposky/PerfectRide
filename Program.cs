@@ -43,6 +43,10 @@ builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSe
 builder.Services.AddScoped<AnnouncementState>();
 builder.Services.AddScoped<VehicleService>();
 builder.Services.AddScoped<MileageTrackingService>();
+builder.Services.AddScoped<MaintenanceService>();
+builder.Services.AddScoped<MileageService>();
+builder.Services.AddScoped<FuelService>();
+builder.Services.AddScoped<MaintenanceScheduleService>();
 
 var app = builder.Build();
 

@@ -3,16 +3,36 @@
 @using PerfectRide.Services
 @using PerfectRide.Helpers
 
+@inject MileageTrackingService MileageTrackingService
 @inject VehicleService VehicleService
-@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject MaintenanceService MaintenanceService
+@inject MileageService MileageService
+@inject FuelService FuelService
 
-<div class="card shadow-sm">
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ILogger<VehicleCard> Logger
+
+
+<div class="card dashboard-card vehicle-dashboard-card shadow-sm">
     <div class="card-body">
-        <h1 class="card-title">My Vehicles</h1>
+        <div class="dashboard-card-heading">
+            <div>
+                <p class="dashboard-card-eyebrow">Fleet</p>
+                <h2 class="card-title">My Vehicles</h2>
+            </div>
+            <a class="dashboard-card-action" href="/authenticated/vehicles">View vehicles <span aria-hidden="true">&rarr;</span></a>
+        </div>
 
         @if (_isLoading)
         {
             <p>Loading vehicles...</p>
+        }
+        else if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <div class="alert alert-danger" role="alert">
+                <p class="mb-2">@_errorMessage</p>
+                <button type="button" class="btn btn-outline-danger btn-sm" @onclick="RetryAsync">Try again</button>
+            </div>
         }
         else if (_vehicles.Count == 0)
         {
@@ -22,7 +42,7 @@
         {
             @foreach (var vehicle in _vehicles)
             {
-                <div class="vehicle-card mb-3">
+                <div class="vehicle-card">
                     <div class="vehicle-card-header">
                         <strong>@vehicle.Year @vehicle.Make @vehicle.Model</strong>
                     </div>
@@ -30,7 +50,9 @@
                     <div class="vehicle-card-body">
                         <div class="vehicle-info">
                             @{
-                                int? mileage = GetLatestMileage(vehicle);
+                                int? mileage = GetVehicleMileage(vehicle.Id);
+                                int? scheduleCount = GetScheduleCount(vehicle.Id);
+                                (decimal? averageFuelMileage, int? fillUps) = GetFuelStatistics(vehicle.Id);
                             }
 
                             <div>
@@ -44,6 +66,38 @@
                                 {
                                     <span>No Mileage Recorded</span>
                                 }
+                            </div>
+                            <div>
+                                <span class="info-label">Fuel fill-ups</span>
+                                @if (fillUps.HasValue)
+                                {
+                                <strong>@fillUps entries</strong>
+                                } else
+                                {
+                                    <span>No fill-ups recorded</span>
+                                }
+
+                            </div>
+                            <div>
+                                <span class="info-label">Average fuel economy</span>
+                                @if (averageFuelMileage.HasValue)
+                                {
+                                <strong>@($"{averageFuelMileage:F1} MPG")</strong>
+                                } else
+                                {
+                                    <span>Not enough information to calculate fuel mileage</span>
+                                }
+                            </div>
+                            <div>
+                                <span class="info-label">Maintenance Schedules</span>
+                                @if (scheduleCount.HasValue)
+                                {
+                                <strong>@scheduleCount active</strong>
+                                } else
+                                {
+                                    <span>Vehicle has no maintenance schedules</span>
+                                }
+
                             </div>
 
                             <div>
@@ -61,48 +115,94 @@
 @code {
     private List<Vehicle> _vehicles = new();
     private bool _isLoading = true;
+    private string? _errorMessage;
+    private readonly Dictionary<int, int?> _vehicleMileages = new();
+    private readonly Dictionary<int, int?> _scheduleCounts = new();
+    private readonly Dictionary<int, (decimal? Average, int? FillUps)> _fuelStatistics = new();
+    private readonly Dictionary<int, List<MaintenanceRecord>> _maintenanceRecords = new();
+    private readonly FuelMileageStatistics _fuelMileageStatistics = new();
 
-    protected override async Task OnInitializedAsync()
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task RetryAsync()
     {
-        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
+        await LoadAsync();
+    }
 
-        var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+        _vehicles.Clear();
+        _vehicleMileages.Clear();
+        _scheduleCounts.Clear();
+        _fuelStatistics.Clear();
+        _maintenanceRecords.Clear();
 
-        if (!string.IsNullOrEmpty(userId))
+        try
         {
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var userId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                _errorMessage = "Unable to verify your account. Please sign in again.";
+                return;
+            }
+
             _vehicles = await VehicleService.GetVehiclesAsync(userId);
-        }
-
-        _isLoading = false;
-
-    }
-    int GetLatestMileage(Vehicle vehicle)
-    {
-        int mileage = 0; 
-        foreach (var record in vehicle.MileageTrackings)
-        {
-            if (record.Mileage > mileage)
+            foreach (Vehicle vehicle in _vehicles)
             {
-                mileage = record.Mileage; 
+                List<MaintenanceSchedule> schedules =
+                    await MaintenanceService.GetMaintenanceSchedulesForVehicleAsync(vehicle.Id, userId);
+                List<FuelRecord> fuelRecords =
+                    await FuelService.GetFuelRecordsForVehicleAsync(vehicle.Id, userId);
+                List<MileageTracking> mileageTrackings =
+                    await MileageService.GetMileageForVehicle(vehicle.Id, userId);
+                List<MaintenanceRecord> records =
+                    await MaintenanceService.GetRecordsForVehicleAsync(vehicle.Id, userId);
+
+                _scheduleCounts[vehicle.Id] = schedules.Count > 0 ? schedules.Count : null;
+                _maintenanceRecords[vehicle.Id] = records;
+
+                (decimal average, int fillUps) =
+                    _fuelMileageStatistics.GetFuelMileageStatistics(fuelRecords, mileageTrackings, userId);
+                _fuelStatistics[vehicle.Id] =
+                    (average > 0 ? average : null, fillUps > 0 ? fillUps : null);
+
+                _vehicleMileages[vehicle.Id] =
+                    await MileageTrackingService.GetCurrentVehicleMileage(vehicle.Id, userId);
             }
         }
-        return mileage;
-    }
-    string? GetLatestMaintenance(Vehicle vehicle)
-    {
-        MaintenanceRecord? latest = null; 
-        foreach (MaintenanceRecord record in vehicle.MaintenanceRecords)
+        catch (Exception ex)
         {
-            if (latest == null)
-            {
-                latest = record;
-            } 
-            if (latest.DatePerformed < record.DatePerformed)
-            {
-                latest = record;
-            }
+            Logger.LogError(ex, "Unable to load dashboard vehicle data.");
+            _errorMessage = "We couldn't load your vehicles. Please try again.";
         }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private int? GetVehicleMileage(int vehicleId) =>
+        _vehicleMileages.TryGetValue(vehicleId, out int? mileage) ? mileage : null;
+
+    private int? GetScheduleCount(int vehicleId) =>
+        _scheduleCounts.TryGetValue(vehicleId, out int? count) ? count : null;
+
+    private (decimal? Average, int? FillUps) GetFuelStatistics(int vehicleId) =>
+        _fuelStatistics.TryGetValue(vehicleId, out var statistics)
+            ? statistics
+            : (null, null);
+
+
+
+    private string GetLatestMaintenance(Vehicle vehicle)
+    {
+        MaintenanceRecord? latest = _maintenanceRecords.TryGetValue(vehicle.Id, out var records)
+            ? records.FirstOrDefault()
+            : null;
+
         if (latest != null)
         {
             string returnString = $"{DisplayNameHelper.ToDisplayName(latest.MaintenanceItem)} on {latest.DatePerformed.ToShortDateString()}";  

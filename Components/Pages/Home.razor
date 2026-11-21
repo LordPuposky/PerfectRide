@@ -1,6 +1,7 @@
 ﻿@page "/"
 @using PerfectRide.Services
 
+@inject AuthenticationStateProvider AuthenticationStateProvider
 @inject AnnouncementState AnnouncementState
 @rendermode InteractiveServer
 
@@ -45,5 +46,18 @@
         true,
         "info"
     );
+}
+
+protected override async Task OnAfterRenderAsync(bool firstRender)
+{
+    if (firstRender)
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+
+        if (authState.User.Identity?.IsAuthenticated == true)
+        {
+            NavigationManager.NavigateTo("/authenticated/dashboard");
+        }
+    }
 }
 }

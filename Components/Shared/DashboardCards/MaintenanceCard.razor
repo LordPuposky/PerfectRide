@@ -3,21 +3,36 @@
 @using PerfectRide.Services
 @using System
 @using System.Globalization
+@using PerfectRide.Helpers
+
 
 @inject VehicleService VehicleService
+@inject MaintenanceService MaintenanceService
+@inject MaintenanceScheduleService MaintenanceScheduleService
+@inject MileageTrackingService MileageTrackingService
 @inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ILogger<MaintenanceCard> Logger
 
-<div class="card shadow-sm">
+<div class="card dashboard-card maintenance-dashboard-card shadow-sm">
     <div class="card-body">
-        <h1 class="card-title">Maintenance</h1>
+        <div class="dashboard-card-heading">
+            <div>
+                <p class="dashboard-card-eyebrow">Service</p>
+                <h2 class="card-title">Maintenance</h2>
+            </div>
+            <a class="dashboard-card-action" href="/authenticated/maintenance">View maintenance <span aria-hidden="true">&rarr;</span></a>
+        </div>
 
         @if (_isLoading)
         {
             <p>Loading Maintenance Summary...</p>
         }
-        else if (_maintenanceRecords.Count == 0)
+        else if (!string.IsNullOrEmpty(_errorMessage))
         {
-            <p>You haven't added any Maintenance Records yet.</p>
+            <div class="alert alert-danger" role="alert">
+                <p class="mb-2">@_errorMessage</p>
+                <button type="button" class="btn btn-outline-danger btn-sm" @onclick="RetryAsync">Try again</button>
+            </div>
         }
         else
         {
@@ -26,11 +41,37 @@
                     @{
                         (int numServices, int vehiclesServiced, decimal totalCost, decimal averageCost) = CalculateServicesStatistics(365);
                     }
-                    <strong>Maintenance Summary</strong>
+                    <strong>Maintenance Overview</strong>
+                    </div>
+
+                    <div class="maintenance-card-body">
+                        <div class="maintenance-info @(_overdueServicesCount > 0 ? "maintenance-info-alert" : "")">
+                        <strong>@_overdueServicesCount</strong>
+                        <strong>Overdue Services</strong>
+                        <p>Services requiring immediate attention</p>
+                        </div>
                     </div>
 
                     <div class="maintenance-card-body">
                         <div class="maintenance-info">
+                        <strong>@_upcomingServicesCount</strong>
+                        <strong>Upcoming Services</strong>
+                        <p>Services approaching</p>
+                        </div>
+                    </div>
+
+                    <div class="maintenance-card-header">
+                   
+                    <strong>Maintenance Summary</strong>
+                    </div>
+
+
+                    <div class="maintenance-card-body">
+                        <div class="maintenance-info">
+                            <div>
+                                <p>Period</p>
+                                <p>This Year</p>
+                            </div>
                         <strong>@numServices</strong>
                         <strong>Services performed</strong>
                         </div>
@@ -48,7 +89,7 @@
                         <strong>
                             @totalCost.ToString("C", CultureInfo.GetCultureInfo("en-US"))
                             </strong>
-                        <strong>Total Cost</strong>
+                        <strong>Total Maintenance Cost</strong>
                         </div>
                     </div>
 
@@ -60,37 +101,97 @@
                         <strong>Average Cost per Service</strong>
                         </div>
                     </div>
+
+
+                    <div class="maintenance-card-header">
+                    <strong>Recent Maintenance</strong>
+                    </div>
+                    
+                    <div class="maintenance-card-body">
+                        <div class="maintenance-info">
+                            <RecentMaintenanceCard UpcomingServices="_upcomingServices" UserVehicles="_userVehicles" OverdueServices="_overdueServices" />
+                        </div>
+                    </div>
                 </div>
             }
     </div>
 </div>
 
 @code {
-    private List<Vehicle> _vehicles = new();
+    [Parameter]
+    public EventCallback<List<string>> OnMessagesGenerated { get; set;  }
+    public List<string> _maintenanceMessages = new(); 
+    private List<Vehicle> _userVehicles = new();
     private bool _isLoading = true;
+    private List<MaintenanceSchedule> _userMaintenanceSchedule = new(); 
+    private List<MaintenanceSchedule> _overdueServices = new();
+    private List<MaintenanceSchedule> _upcomingServices = new();
+    private int _overdueServicesCount = 0;
+    private int _upcomingServicesCount = 0;
+    private List<MaintenanceRecord> _maintenanceRecords = new();
+    private List<MileageTracking> _mileageTrackings = new(0);
+    private string? _errorMessage;
+    protected override Task OnInitializedAsync() => LoadAsync();
 
-    private List<MaintenanceRecord> _maintenanceRecords = new(); 
-
-    protected override async Task OnInitializedAsync()
+    private async Task RetryAsync()
     {
-        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        var user = authState.User;
+        await LoadAsync();
+    }
 
-        var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-        if (!string.IsNullOrEmpty(userId))
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+        _maintenanceRecords.Clear();
+        _overdueServices.Clear();
+        _upcomingServices.Clear();
+        _maintenanceMessages.Clear();
+        try
         {
-            _vehicles = await VehicleService.GetVehiclesAsync(userId);
-            _maintenanceRecords = new();  
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var userId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-            _maintenanceRecords = _vehicles
-            .SelectMany(v => v.MaintenanceRecords)
-            .OrderByDescending(r => r.DatePerformed)
-            .ToList();
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                _errorMessage = "Unable to verify your account. Please sign in again.";
+                return;
+            }
+
+            Dictionary<int,int> vehicleCurrentMileages = await MileageTrackingService.GetCurrentMileageByUser(userId); 
+            _userVehicles = await VehicleService.GetVehiclesAsync(userId);
+            _mileageTrackings = await MileageTrackingService.GetMileageTrackingsByUser(userId);
+            _userMaintenanceSchedule = await MaintenanceScheduleService.GetMaintenanceScheduleForUser(userId); 
+            foreach (Vehicle v in _userVehicles)
+            {
+
+                List<MaintenanceRecord> vehicleRecords = new List<MaintenanceRecord>();  
+                vehicleRecords= await MaintenanceService.GetRecordsForVehicleAsync(v.Id, userId);
+                _maintenanceRecords.AddRange(vehicleRecords);
+            }
+            (
+                _overdueServicesCount,
+                _overdueServices, 
+                _upcomingServicesCount,
+                _upcomingServices) = ScheduledServicesHelper.CalculateScheduledServices(
+                _userMaintenanceSchedule, 
+                _maintenanceRecords, 
+                _mileageTrackings, 
+                vehicleCurrentMileages);
+
+            await GenerateMaintenanceMessages(); 
+            await OnMessagesGenerated.InvokeAsync(_maintenanceMessages);
         }
-
-        _isLoading = false;
-
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Unable to load dashboard maintenance data.");
+            _errorMessage = "We couldn't load your maintenance summary. Please try again.";
+            _maintenanceMessages.Clear();
+            await OnMessagesGenerated.InvokeAsync(_maintenanceMessages);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
     }
     (int, int, decimal, decimal) CalculateServicesStatistics (int periodLength)
     {
@@ -128,4 +229,46 @@
         return (serviceCount, vehicleCount, totalCost, averageCost); 
 
     }
+
+
+private async Task GenerateMaintenanceMessages()
+{
+    _maintenanceMessages.Clear();
+
+    List<MaintenanceSchedule> servicesToDisplay =
+        _overdueServices.Count > 0
+            ? _overdueServices
+            : _upcomingServices;
+
+    foreach (MaintenanceSchedule schedule in servicesToDisplay)
+    {
+        Vehicle? vehicle = _userVehicles
+            .FirstOrDefault(v => v.Id == schedule.VehicleId);
+
+        if (vehicle == null)
+            continue;
+
+        string vehicleName =
+            $"{vehicle.Year} {vehicle.Make} {vehicle.Model}";
+        string serviceName = schedule.MaintenanceItem == MaintenanceItem.Other
+            ? schedule.Description ?? "Other Maintenance"
+            : DisplayNameHelper.ToDisplayName(schedule.MaintenanceItem);
+
+        string status = _overdueServices.Contains(schedule)
+            ? "is overdue"
+            : "is coming due soon";
+
+        _maintenanceMessages.Add(
+            $"{vehicleName}: {serviceName} {status}.");
+    }
+
+    if (_maintenanceMessages.Count == 0)
+    {
+        _maintenanceMessages.Add(
+            "Your vehicles are up to date on scheduled maintenance!");
+    }
+}
+
+
+   
 }
