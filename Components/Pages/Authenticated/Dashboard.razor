@@ -1,32 +1,42 @@
 @page "/authenticated/dashboard"
 @using PerfectRide.Components.Pages.Authenticated.Maintenance
 @using PerfectRide.Components.Shared.DashboardCards
-@inject AnnouncementState AnnouncementState
 
-<div>
-    <section>
+
+
+<AnnouncementBanner
+    Messages="_maintenanceMessages"
+    MessageType="warning"
+    RotationIntervalSeconds="6" />
+
+<div class="dashboard-page">
+    <header class="dashboard-header">
+        <div>
+            <p class="dashboard-eyebrow">PerfectRide</p>
+            <h1>Dashboard</h1>
+        </div>
+    </header>
+
+    <div class="dashboard-grid">
+    <section class="dashboard-section dashboard-section-vehicles">
        <VehicleCard/>
     </section>
-    <section>
-       <MaintenanceCard/>
+    <section class="dashboard-section dashboard-section-maintenance">
+       <MaintenanceCard OnMessagesGenerated="HandleMessagesGenerated" />
     </section>
-    <section>
-        <h1>Mileage and Fuel</h1>
-    </section>
-    <section>
+    </div>
+        <section>
         <h1>Documents</h1>
     </section>
 </div>
 
 @code{
 
-    string dashboardMessage = ""; 
-   protected override void OnInitialized()
-{
-    AnnouncementState.SetAnnouncement(
-        $"Dashboard: {dashboardMessage}",
-        true,
-        "info"
-    );
-}
+    private List<string> _maintenanceMessages = new();
+
+    private void HandleMessagesGenerated(List<string> messages)
+    {
+        _maintenanceMessages = messages;
+    }
+        
 }

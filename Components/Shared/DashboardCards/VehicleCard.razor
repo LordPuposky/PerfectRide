@@ -3,6 +3,7 @@
 @using PerfectRide.Services
 @using PerfectRide.Helpers
 
+@inject MileageTrackingService MileageTrackingService
 @inject VehicleService VehicleService
 @inject MaintenanceService MaintenanceService
 @inject MileageService MileageService
@@ -11,10 +12,15 @@
 @inject AuthenticationStateProvider AuthenticationStateProvider
 
 
-<div class="card shadow-sm">
+<div class="card dashboard-card vehicle-dashboard-card shadow-sm">
     <div class="card-body">
-        <h1 class="card-title">My Vehicles</h1>
-       <p><a class="btn btn-outline-secondary btn-sm" href="/authenticated/vehicles">&rArr; Go to Vehicles</a></p>
+        <div class="dashboard-card-heading">
+            <div>
+                <p class="dashboard-card-eyebrow">Fleet</p>
+                <h2 class="card-title">My Vehicles</h2>
+            </div>
+            <a class="dashboard-card-action" href="/authenticated/vehicles">View vehicles <span aria-hidden="true">&rarr;</span></a>
+        </div>
 
         @if (_isLoading)
         {
@@ -28,7 +34,7 @@
         {
             @foreach (var vehicle in _vehicles)
             {
-                <div class="vehicle-card mb-3">
+                <div class="vehicle-card">
                     <div class="vehicle-card-header">
                         <strong>@vehicle.Year @vehicle.Make @vehicle.Model</strong>
                     </div>
@@ -36,7 +42,7 @@
                     <div class="vehicle-card-body">
                         <div class="vehicle-info">
                             @{
-                                int? mileage = GetLatestMileage(vehicle);
+                                int? mileage = _vehicleMileage;
                             }
 
                             <div>
@@ -106,7 +112,8 @@
     private List<MileageTracking> _mileageTrackings = new(); 
     private List<FuelRecord> _fuelRecords = new(); 
     private bool _isLoading = true;
-
+    protected string _userId = "";
+    private int? _vehicleMileage; 
     private FuelMileageStatistics _fuelMileageStatistics = new(); 
     protected override async Task OnInitializedAsync()
 
@@ -115,7 +122,7 @@
         var user = authState.User;
 
         var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
+        _userId = userId!; 
 
         if (!string.IsNullOrEmpty(userId))
         {
@@ -132,20 +139,21 @@
                 _fuelRecords.AddRange(vehicleFuelRecords);
 
                 (_averageFuelMileage, _fillUps) = _fuelMileageStatistics.GetFuelMileageStatistics(vehicleFuelRecords, vehicleMileageTrackings, userId);
-
+                _vehicleMileage = await GetLatestMileage(v, userId);
             }
         }
-    _isLoading = false;
+        _isLoading = false;
     }
 
 
-    
-    int? GetLatestMileage(Vehicle vehicle)
+
+    private async Task<int?> GetLatestMileage(Vehicle vehicle, string userId)
     {
-        MileageTracking? latest = _mileageTrackings.FirstOrDefault( m => m.VehicleId == vehicle.Id);
+        return await MileageTrackingService.GetCurrentVehicleMileage(vehicle.Id, userId);
+        @* MileageTracking? latest = _mileageTrackings.FirstOrDefault( m => m.VehicleId == vehicle.Id);
         int? mileage = latest?.Mileage;
 
-        return mileage;
+        return mileage; *@
     }
     private string GetLatestMaintenance(Vehicle vehicle)
     {

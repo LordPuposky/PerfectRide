@@ -142,28 +142,49 @@ h1:focus {
 }
 
 /***************************Anouncement Banner*************************/
+
+/*************************** Announcement Banner *************************/
+
 .announcement-banner {
   position: relative;
-  flex: 1 1 auto;
-  min-width: 0;
-  height: 100%;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 58px;
+  padding: 10px 20px;
+  margin-bottom: 20px;
   overflow: hidden;
   white-space: nowrap;
   color: var(--white);
-  font-size: 30px;
+  background-color: var(--primary);
+  border-radius: 8px;
+  font-size: 16px;
+}
+
+.announcement-banner.warning {
+  background-color: #8a1c1c;
+}
+
+.announcement-banner.info {
+  background-color: var(--secondary);
 }
 
 .announcement-track {
   position: relative;
   width: 100%;
-  height: 100%;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+}
+
+.announcement-track span {
+  display: inline-block;
 }
 
 .announcement-track.scrolling span {
   position: absolute;
   top: 50%;
   left: 100%;
-  display: inline-block;
   white-space: nowrap;
   transform: translateY(-50%);
   animation: announcement-scroll 18s linear infinite;
@@ -178,6 +199,7 @@ h1:focus {
     left: 100%;
     transform: translateY(-50%);
   }
+
   to {
     left: 0;
     transform: translate(-100%, -50%);
