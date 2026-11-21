@@ -22,6 +22,11 @@ public class FuelMileageStatistics
             .First(m => m.Id == r.MileageTrackingId).Mileage)
             .ToList();
 
+            if (sortedRecords.Count == 0)
+            {
+                return (0, vehicleTotalFillUps);
+            }
+
             while (sortedRecords[0].IsFullTank == false && sortedRecords.Count > 1)
             {
                 sortedRecords.RemoveAt(0);

@@ -41,12 +41,9 @@ public class MileageTrackingService(ApplicationDbContext context)
 
     public async Task<int?> GetCurrentVehicleMileage(int vehicleId, string userId)
     {
-        List<MileageTracking> vehicleMileageTrackings = await context.MileageTrackings
-        .Where(m => m.VehicleId == vehicleId && m.Vehicle!.UserId == userId)
-        .OrderByDescending(m => m.Mileage)
-        .ToListAsync();
-        return vehicleMileageTrackings[0].Mileage;
-
+        return await context.MileageTrackings
+            .Where(m => m.VehicleId == vehicleId && m.Vehicle!.UserId == userId)
+            .MaxAsync(m => (int?)m.Mileage);
     }
 
     public async Task<Dictionary<int, int>> GetCurrentMileageByUser(string userId)

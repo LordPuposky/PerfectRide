@@ -36,7 +36,8 @@
 
     private void HandleMessagesGenerated(List<string> messages)
     {
-        _maintenanceMessages = messages;
+        _maintenanceMessages = messages?.Where(message => !string.IsNullOrWhiteSpace(message)).ToList()
+            ?? new List<string>();
     }
         
 }

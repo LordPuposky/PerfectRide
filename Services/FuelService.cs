@@ -9,7 +9,7 @@ public class FuelService(ApplicationDbContext context)
     {
         return await context.FuelRecords
         .AsNoTracking()
-        .Where(f => f.VehicleId == vehicleId && f.Vehicle.UserId == userId)
+        .Where(f => f.VehicleId == vehicleId && f.Vehicle!.UserId == userId)
         .OrderByDescending(f => f.DateFilled)
         .ToListAsync();
     }
