@@ -1,0 +1,153 @@
+@page "/documents"
+@rendermode InteractiveServer
+@inject IWebHostEnvironment Environment
+
+<PageTitle>Document Management - PerfectRide</PageTitle>
+
+<div class="container mt-4">
+    <h2>Document Management</h2>
+    <p class="text-muted">Upload, view, and manage your vehicle or user documents.</p>
+
+    <!-- Zone d'importation de fichier -->
+    <div class="card mb-4">
+        <div class="card-header">Upload a New Document</div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label for="docUpload" class="form-label">Select file (PDF, JPG, PNG - Max 5 MB)</label>
+                <InputFile id="docUpload" OnChange="HandleFileSelected" class="form-control" accept=".pdf,.jpg,.jpeg,.png" />
+            </div>
+
+            @if (!string.IsNullOrEmpty(statusMessage))
+            {
+                <div class="alert @(isError ? "alert-danger" : "alert-success") mt-2">
+                    @statusMessage
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Liste des documents -->
+    <div class="card">
+        <div class="card-header">Uploaded Documents</div>
+        <div class="card-body">
+            @if (documents.Count == 0)
+            {
+                <p class="text-muted">No documents uploaded yet.</p>
+            }
+            else
+            {
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>File Name</th>
+                            <th>Size</th>
+                            <th>Upload Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var doc in documents)
+                        {
+                            <tr>
+                                <td>@doc.Name</td>
+                                <td>@(doc.Size / 1024) KB</td>
+                                <td>@doc.UploadDate.ToString("dd/MM/yyyy HH:mm")</td>
+                                <td>
+                                    <a href="/uploads/@doc.Name" target="_blank" class="btn btn-sm btn-outline-primary me-2">View</a>
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteDocument(doc.Name)">Delete</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<DocumentItem> documents = new();
+    private string? statusMessage;
+    private bool isError;
+    private long maxFileSize = 1024 * 1024 * 5; // 5 MB max
+
+    protected override void OnInitialized()
+    {
+        LoadDocuments();
+    }
+
+    private string GetUploadFolder()
+    {
+        var path = Path.Combine(Environment.WebRootPath, "uploads");
+        if (!Directory.Exists(path))
+        {
+            Directory.CreateDirectory(path);
+        }
+        return path;
+    }
+
+    private void LoadDocuments()
+    {
+        var folder = GetUploadFolder();
+        var files = Directory.GetFiles(folder);
+        documents = files.Select(f => new FileInfo(f))
+            .Select(info => new DocumentItem
+            {
+                Name = info.Name,
+                Size = info.Length,
+                UploadDate = info.CreationTime
+            })
+            .OrderByDescending(d => d.UploadDate)
+            .ToList();
+    }
+
+    private async Task HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        statusMessage = null;
+        isError = false;
+        var file = e.File;
+
+        if (file.Size > maxFileSize)
+        {
+            statusMessage = "Error: File exceeds the 5 MB limit.";
+            isError = true;
+            return;
+        }
+
+        try
+        {
+            var folder = GetUploadFolder();
+            var filePath = Path.Combine(folder, file.Name);
+
+            await using FileStream fs = new(filePath, FileMode.Create);
+            await file.OpenReadStream(maxFileSize).CopyToAsync(fs);
+
+            statusMessage = $"'{file.Name}' uploaded successfully!";
+            LoadDocuments();
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Upload failed: {ex.Message}";
+            isError = true;
+        }
+    }
+
+    private void DeleteDocument(string fileName)
+    {
+        var filePath = Path.Combine(GetUploadFolder(), fileName);
+        if (File.Exists(filePath))
+        {
+            File.Delete(filePath);
+            statusMessage = $"'{fileName}' has been deleted.";
+            isError = false;
+            LoadDocuments();
+        }
+    }
+
+    public class DocumentItem
+    {
+        public string Name { get; set; } = string.Empty;
+        public long Size { get; set; }
+        public DateTime UploadDate { get; set; }
+    }
+}
