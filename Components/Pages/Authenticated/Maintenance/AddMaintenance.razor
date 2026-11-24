@@ -1,0 +1,114 @@
+@page "/authenticated/maintenance/add"
+@rendermode InteractiveServer
+@using System.Globalization
+@using System.Security.Claims
+@using Microsoft.EntityFrameworkCore
+@using PerfectRide.Data
+@using PerfectRide.Models
+@inject MaintenanceService MaintenanceService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager Navigation
+
+@* Page to log a new maintenance service for one vehicle. *@
+
+<PageTitle>Add Service - PerfectRide</PageTitle>
+
+@if (_isLoading)
+{
+    <p>Loading...</p>
+}
+else if (_vehicle is null)
+{
+    <h1>Vehicle not found</h1>
+    <p>This vehicle does not exist or does not belong to your account.</p>
+    <p><a class="btn btn-outline-secondary" href="/authenticated/maintenance">&larr; Back to all vehicles</a></p>
+}
+else
+{
+    <h1>Add Service</h1>
+    <p class="lead">@VehicleName</p>
+    @if (_latestMileage is int latest)
+    {
+        <p>Last recorded mileage: @latest.ToString("N0", UsCulture) mi</p>
+    }
+
+    <MaintenanceForm Model="_model" OnValidSubmit="SaveAsync" SubmitText="Save service" CancelUrl="@HistoryUrl"
+                     IsSaving="_isSaving" ErrorMessage="@_errorMessage" />
+}
+
+@code {
+    // The vehicle comes from the URL: /authenticated/maintenance/add?vehicleId=3
+    [SupplyParameterFromQuery]
+    public int? VehicleId { get; set; }
+
+    private static readonly CultureInfo UsCulture = CultureInfo.GetCultureInfo("en-US");
+
+    private readonly MaintenanceFormModel _model = new();
+    private Vehicle? _vehicle;
+    private int? _latestMileage;
+    private string? _userId;
+    private bool _isLoading = true;
+    private bool _isSaving;
+    private string? _errorMessage;
+
+    private string VehicleName =>
+        _vehicle is null ? string.Empty : $"{_vehicle.Year} {_vehicle.Make} {_vehicle.Model}";
+
+    private string HistoryUrl => $"/authenticated/maintenance/{VehicleId}";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        _userId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (VehicleId is int vehicleId && !string.IsNullOrEmpty(_userId))
+        {
+            _vehicle = await MaintenanceService.GetVehicleAsync(vehicleId, _userId);
+            if (_vehicle is not null)
+            {
+                // Suggest today's date and the latest known mileage to save typing.
+                _latestMileage = await MaintenanceService.GetLatestMileageAsync(vehicleId, _userId);
+                _model.Mileage = _latestMileage;
+                _model.DatePerformed = DateOnly.FromDateTime(DateTime.Today);
+            }
+        }
+
+        _isLoading = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_vehicle is null || _userId is null || _isSaving)
+        {
+            return;
+        }
+
+        _isSaving = true;
+        _errorMessage = null;
+
+        try
+        {
+            var record = new MaintenanceRecord { VehicleId = _vehicle.Id };
+            _model.ApplyTo(record);
+            await MaintenanceService.AddRecordAsync(record, _model.Mileage!.Value, _userId);
+            Navigation.NavigateTo(HistoryUrl);
+        }
+        catch (ArgumentException ex)
+        {
+            // Business rule messages from the service are safe to show.
+            _errorMessage = ex.Message;
+        }
+        catch (DbUpdateException)
+        {
+            _errorMessage = "The service could not be saved. If you already logged a service on the same date with the same mileage, please check that record.";
+        }
+        catch (Exception)
+        {
+            _errorMessage = "Something went wrong while saving the service. Please try again.";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+}
