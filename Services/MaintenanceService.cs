@@ -119,9 +119,10 @@ public class MaintenanceService(ApplicationDbContext context, MileageTrackingSer
         bool readingChanged = oldReading.Mileage != mileage || oldReading.DateRecorded != updated.DatePerformed;
         bool oldReadingShared = await IsReadingUsedByOthersAsync(oldReading.Id, existing.Id);
 
-        // If this record is the only one using the old reading, the odometer check ignores it,
-        // because it will be replaced. A shared reading stays, so it is still checked.
-        await ValidateAsync(updated, mileage, userId, excludedReadingId: oldReadingShared ? null : oldReading.Id);
+        // The old reading is left out of the odometer check only when it will be replaced
+        // (the date or mileage changed) and no other record uses it. Otherwise it is still checked.
+        bool excludeOldReading = readingChanged && !oldReadingShared;
+        await ValidateAsync(updated, mileage, userId, excludedReadingId: excludeOldReading ? oldReading.Id : null);
 
         await using var transaction = await context.Database.BeginTransactionAsync();
         try
@@ -297,13 +298,16 @@ public class MaintenanceService(ApplicationDbContext context, MileageTrackingSer
             }
         }
 
+        // The schedule must belong to the same vehicle and be for the same service type.
         if (record.MaintenanceScheduleId is int scheduleId)
         {
-            bool sameVehicle = await context.MaintenanceSchedules
-                .AnyAsync(s => s.Id == scheduleId && s.VehicleId == record.VehicleId);
-            if (!sameVehicle)
+            bool scheduleMatches = await context.MaintenanceSchedules
+                .AnyAsync(s => s.Id == scheduleId
+                    && s.VehicleId == record.VehicleId
+                    && s.MaintenanceItem == record.MaintenanceItem);
+            if (!scheduleMatches)
             {
-                throw new ArgumentException("The maintenance schedule must belong to the same vehicle.");
+                throw new ArgumentException("The maintenance schedule must belong to the same vehicle and service type.");
             }
         }
     }
