@@ -57,11 +57,70 @@
         </div>
 
         <div class="card mb-4">
-            <div class="card-header bg-secondary text-white">
+            <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">Fuel Records</h5>
+                <a href="/authenticated/fuel/add?vehicleId=@vehicle.Id" class="btn btn-sm btn-light">Add Fuel Record</a>
             </div>
             <div class="card-body">
-                <p class="text-muted">Fuel records will appear here.</p>
+                @if (fuelRecords == null || !fuelRecords.Any())
+                {
+                    <p class="text-muted">No fuel records yet. Click Add Fuel Record to get started.</p>
+                }
+                else
+                {
+                    <div class="mb-3 d-flex gap-2 align-items-center flex-wrap">
+                        <label class="form-label mb-0">Filter by:</label>
+                        <select class="form-select w-auto" @onchange="FilterChanged">
+                            <option value="all">All Records</option>
+                            <option value="full">Full Tank Only</option>
+                            <option value="partial">Partial Tank Only</option>
+                        </select>
+                        <input type="date" class="form-control w-auto" @bind="filterStartDate" @bind:format="yyyy-MM-dd"
+                               placeholder="From" />
+                        <input type="date" class="form-control w-auto" @bind="filterEndDate" @bind:format="yyyy-MM-dd"
+                               placeholder="To" />
+                        <button class="btn btn-outline-primary btn-sm" @onclick="ApplyFilter">Apply</button>
+                        <button class="btn btn-outline-secondary btn-sm" @onclick="ClearFilter">Clear</button>
+                    </div>
+
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Mileage</th>
+                                <th>Gallons</th>
+                                <th>Price/Gallon</th>
+                                <th>Total Cost</th>
+                                <th>Full Tank</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var record in displayedRecords)
+                            {
+                                <tr>
+                                    <td>@record.DateFilled.ToString("MM/dd/yyyy")</td>
+                                    <td>@(record.MileageTracking?.Mileage.ToString("N0")) miles</td>
+                                    <td>@record.Gallons.ToString("N2")</td>
+                                    <td>$@record.PricePerGallon.ToString("N2")</td>
+                                    <td>$@record.TotalCost.ToString("N2")</td>
+                                    <td>@(record.IsFullTank ? "Yes" : "No")</td>
+                                    <td>
+                                        <a href="/authenticated/fuel/edit/@record.Id" class="btn btn-sm btn-secondary me-1">Edit</a>
+                                        <a href="/authenticated/fuel/delete/@record.Id" class="btn btn-sm btn-danger">Delete</a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+
+                    @if (filteredRecords.Count > 5)
+                    {
+                        <button class="btn btn-outline-secondary btn-sm" @onclick="ToggleShowMore">
+                            @(showAll ? "Show Less" : $"Show More ({filteredRecords.Count - 5} more)")
+                        </button>
+                    }
+                }
             </div>
         </div>
 
@@ -91,6 +150,60 @@
 
     private Vehicle? vehicle;
     private MileageTracking? latestMileage;
+    private List<FuelRecord>? fuelRecords;
+
+    private List<FuelRecord> filteredRecords = new();
+    private List<FuelRecord> displayedRecords = new();
+    private bool showAll = false;
+    private string currentFilter = "all";
+    private DateOnly? filterStartDate = null;
+    private DateOnly? filterEndDate = null;
+
+    private void FilterChanged(ChangeEventArgs e)
+    {
+        currentFilter = e.Value?.ToString() ?? "all";
+        showAll = false;
+        ApplyFilter();
+    }
+
+    private void ToggleShowMore()
+    {
+        showAll = !showAll;
+        ApplyFilter();
+    }
+
+    private void ApplyFilter()
+    {
+        filteredRecords = currentFilter switch
+        {
+            "full" => fuelRecords!.Where(f => f.IsFullTank).ToList(),
+            "partial" => fuelRecords!.Where(f => !f.IsFullTank).ToList(),
+            _ => fuelRecords!.ToList()
+        };
+
+        if (filterStartDate != null)
+        {
+            filteredRecords = filteredRecords
+                .Where(f => f.DateFilled >= filterStartDate).ToList();
+        }
+
+        if (filterEndDate != null)
+        {
+            filteredRecords = filteredRecords
+                .Where(f => f.DateFilled <= filterEndDate).ToList();
+        }
+
+        displayedRecords = showAll ? filteredRecords : filteredRecords.Take(5).ToList();
+    }
+
+    private void ClearFilter()
+    {
+        currentFilter = "all";
+        filterStartDate = null;
+        filterEndDate = null;
+        showAll = false;
+        ApplyFilter();
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -109,6 +222,12 @@
                     .Where(m => m.VehicleId == Id)
                     .OrderByDescending(m => m.Mileage)
                     .FirstOrDefaultAsync();
+
+                fuelRecords = await Db.FuelRecords
+                    .Where(f => f.VehicleId == Id)
+                    .Include(f => f.MileageTracking)
+                    .OrderByDescending(f => f.DateFilled)
+                    .ToListAsync();
             }
         }
 
@@ -116,5 +235,7 @@
         {
             Nav.NavigateTo("/authenticated/vehicles");
         }
+
+        ApplyFilter();
     }
 }
