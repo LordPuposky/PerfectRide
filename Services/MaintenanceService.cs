@@ -7,10 +7,12 @@ namespace PerfectRide.Services;
 
 /// <summary>
 /// Handles the maintenance records of a user's vehicles.
-/// Every maintenance record has exactly one MileageTracking entry,
-/// so both are created, updated, and deleted together.
+/// Each record is linked to a MileageTracking reading. Readings can be shared:
+/// several services from the same visit (same vehicle, date, and mileage) use one reading.
+/// Readings are obtained through MileageTrackingService, and a reading is deleted
+/// only when no other record uses it.
 /// </summary>
-public class MaintenanceService(ApplicationDbContext context)
+public class MaintenanceService(ApplicationDbContext context, MileageTrackingService mileageTrackingService)
 {
     /// <summary>
     /// Returns the maintenance history of one vehicle, newest first.
@@ -75,30 +77,27 @@ public class MaintenanceService(ApplicationDbContext context)
     }
 
     /// <summary>
-    /// Adds a maintenance record and its MileageTracking entry.
-    /// Both are saved in one SaveChanges call, which runs in a single transaction.
+    /// Adds a maintenance record and links it to a mileage reading
+    /// (an existing one from the same visit, or a new one), in one transaction.
     /// </summary>
     public async Task<int> AddRecordAsync(MaintenanceRecord record, int mileage, string userId)
     {
-        await ValidateAsync(record, mileage, userId);
+        await ValidateAsync(record, mileage, userId, excludedReadingId: null);
 
-        record.MileageTracking = new MileageTracking
-        {
-            VehicleId = record.VehicleId,
-            DateRecorded = record.DatePerformed,
-            Mileage = mileage,
-            Source = MileageSource.MaintenanceRecord
-        };
-
-        context.MaintenanceRecords.Add(record);
+        await using var transaction = await context.Database.BeginTransactionAsync();
         try
         {
+            record.MileageTracking = await GetOrCreateReadingAsync(record.VehicleId, record.DatePerformed, mileage);
+            context.MaintenanceRecords.Add(record);
+
             await context.SaveChangesAsync();
+            await transaction.CommitAsync();
         }
         catch
         {
+            await transaction.RollbackAsync();
             // Blazor Server keeps the same DbContext for the whole session.
-            // Clear the failed record so it is not saved again on the next attempt.
+            // Clear the failed changes so they are not saved again on the next attempt.
             context.ChangeTracker.Clear();
             throw;
         }
@@ -106,7 +105,8 @@ public class MaintenanceService(ApplicationDbContext context)
     }
 
     /// <summary>
-    /// Updates a maintenance record and keeps its MileageTracking entry in sync.
+    /// Updates a maintenance record. If the date or mileage changes, the record is linked
+    /// to another reading, because the current one may be shared with other records.
     /// Returns false if the record does not exist or belongs to another user.
     /// </summary>
     public async Task<bool> UpdateRecordAsync(MaintenanceRecord updated, int mileage, string userId)
@@ -122,24 +122,43 @@ public class MaintenanceService(ApplicationDbContext context)
 
         // The vehicle of a record cannot be changed.
         updated.VehicleId = existing.VehicleId;
-        await ValidateAsync(updated, mileage, userId);
+        // The form doesn't edit the schedule link. Keep it, unless the service type changed:
+        // a schedule belongs to one service type, so the old link would no longer be valid.
+        updated.MaintenanceScheduleId = updated.MaintenanceItem == existing.MaintenanceItem
+            ? existing.MaintenanceScheduleId
+            : null;
 
-        existing.MaintenanceItem = updated.MaintenanceItem;
-        existing.Description = updated.Description;
-        existing.DatePerformed = updated.DatePerformed;
-        existing.Cost = updated.Cost;
-        existing.ServiceProvider = updated.ServiceProvider;
-        existing.MaintenanceScheduleId = updated.MaintenanceScheduleId;
+        var oldReading = existing.MileageTracking!;
+        bool readingChanged = oldReading.Mileage != mileage || oldReading.DateRecorded != updated.DatePerformed;
+        bool oldReadingShared = await IsReadingUsedByOthersAsync(oldReading.Id, existing.Id);
 
-        existing.MileageTracking!.Mileage = mileage;
-        existing.MileageTracking.DateRecorded = updated.DatePerformed;
+        // The old reading is left out of the odometer check only when it will be replaced
+        // (the date or mileage changed) and no other record uses it. Otherwise it is still checked.
+        bool excludeOldReading = readingChanged && !oldReadingShared;
+        await ValidateAsync(updated, mileage, userId, excludedReadingId: excludeOldReading ? oldReading.Id : null);
 
+        await using var transaction = await context.Database.BeginTransactionAsync();
         try
         {
+            existing.MaintenanceItem = updated.MaintenanceItem;
+            existing.Description = updated.Description;
+            existing.DatePerformed = updated.DatePerformed;
+            existing.Cost = updated.Cost;
+            existing.ServiceProvider = updated.ServiceProvider;
+            existing.MaintenanceScheduleId = updated.MaintenanceScheduleId;
+
+            if (readingChanged)
+            {
+                existing.MileageTracking = await GetOrCreateReadingAsync(existing.VehicleId, updated.DatePerformed, mileage);
+                RemoveReadingIfUnused(oldReading, oldReadingShared);
+            }
+
             await context.SaveChangesAsync();
+            await transaction.CommitAsync();
         }
         catch
         {
+            await transaction.RollbackAsync();
             // Same reason as in AddRecordAsync: do not keep failed changes in the session.
             context.ChangeTracker.Clear();
             throw;
@@ -148,8 +167,8 @@ public class MaintenanceService(ApplicationDbContext context)
     }
 
     /// <summary>
-    /// Deletes a maintenance record and its MileageTracking entry in the same transaction.
-    /// Returns false if the record does not exist or belongs to another user.
+    /// Deletes a maintenance record, and its reading if no other record uses it,
+    /// in one transaction. Returns false if the record does not exist or belongs to another user.
     /// </summary>
     public async Task<bool> DeleteRecordAsync(int recordId, string userId)
     {
@@ -162,21 +181,69 @@ public class MaintenanceService(ApplicationDbContext context)
             return false;
         }
 
-        context.MaintenanceRecords.Remove(record);
-        if (record.MileageTracking is not null)
-        {
-            context.MileageTrackings.Remove(record.MileageTracking);
-        }
+        var reading = record.MileageTracking!;
+        bool readingShared = await IsReadingUsedByOthersAsync(reading.Id, record.Id);
 
-        await context.SaveChangesAsync();
+        await using var transaction = await context.Database.BeginTransactionAsync();
+        try
+        {
+            context.MaintenanceRecords.Remove(record);
+            RemoveReadingIfUnused(reading, readingShared);
+
+            await context.SaveChangesAsync();
+            await transaction.CommitAsync();
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            context.ChangeTracker.Clear();
+            throw;
+        }
         return true;
+    }
+
+    /// <summary>
+    /// Gets the reading for this vehicle, date, and mileage from MileageTrackingService.
+    /// A new reading is not tracked yet, so it is added to the context, as the service guide requires.
+    /// </summary>
+    private async Task<MileageTracking> GetOrCreateReadingAsync(int vehicleId, DateOnly date, int mileage)
+    {
+        var reading = await mileageTrackingService.AssignMileageTrackingRecord(
+            vehicleId, date, mileage, MileageSource.MaintenanceRecord);
+
+        if (context.Entry(reading).State == EntityState.Detached)
+        {
+            context.MileageTrackings.Add(reading);
+        }
+        return reading;
+    }
+
+    /// <summary>
+    /// Returns true if another maintenance record or a fuel record uses this reading.
+    /// </summary>
+    private async Task<bool> IsReadingUsedByOthersAsync(int readingId, int currentRecordId)
+    {
+        return await context.MaintenanceRecords.AnyAsync(r => r.MileageTrackingId == readingId && r.Id != currentRecordId)
+            || await context.FuelRecords.AnyAsync(f => f.MileageTrackingId == readingId);
+    }
+
+    /// <summary>
+    /// Deletes a reading that no other record uses. Readings entered manually or by
+    /// the fuel module are never deleted here.
+    /// </summary>
+    private void RemoveReadingIfUnused(MileageTracking reading, bool isShared)
+    {
+        if (!isShared && reading.Source == MileageSource.MaintenanceRecord)
+        {
+            context.MileageTrackings.Remove(reading);
+        }
     }
 
     /// <summary>
     /// Applies the business rules from the database guide.
     /// Throws an exception with a user-friendly message if a rule fails.
     /// </summary>
-    private async Task ValidateAsync(MaintenanceRecord record, int mileage, string userId)
+    private async Task ValidateAsync(MaintenanceRecord record, int mileage, string userId, int? excludedReadingId)
     {
         bool ownsVehicle = await context.Vehicles
             .AnyAsync(v => v.Id == record.VehicleId && v.UserId == userId);
@@ -192,10 +259,12 @@ public class MaintenanceService(ApplicationDbContext context)
 
         // An odometer never goes backward: the mileage must fit between
         // the readings recorded before and after this date for the same vehicle.
-        // When editing, the record's own reading is ignored.
         var otherReadings = context.MileageTrackings
-            .Where(m => m.VehicleId == record.VehicleId)
-            .Where(m => m.MaintenanceRecords == null); //|| m.MaintenanceRecords.Id != record.Id);
+            .Where(m => m.VehicleId == record.VehicleId);
+        if (excludedReadingId is int readingId)
+        {
+            otherReadings = otherReadings.Where(m => m.Id != readingId);
+        }
 
         var usCulture = CultureInfo.GetCultureInfo("en-US");
         var date = record.DatePerformed.ToString("MMM d, yyyy", usCulture);
@@ -238,17 +307,20 @@ public class MaintenanceService(ApplicationDbContext context)
             {
                 var serviceName = DisplayNameHelper.ToDisplayName(record.MaintenanceItem);
                 throw new ArgumentException(
-                $"{serviceName} is already recorded for this vehicle on {date}. Please edit that record instead.");
+                    $"{serviceName} is already recorded for this vehicle on {date}. Please edit that record instead.");
             }
         }
 
+        // The schedule must belong to the same vehicle and be for the same service type.
         if (record.MaintenanceScheduleId is int scheduleId)
         {
-            bool sameVehicle = await context.MaintenanceSchedules
-                .AnyAsync(s => s.Id == scheduleId && s.VehicleId == record.VehicleId);
-            if (!sameVehicle)
+            bool scheduleMatches = await context.MaintenanceSchedules
+                .AnyAsync(s => s.Id == scheduleId
+                    && s.VehicleId == record.VehicleId
+                    && s.MaintenanceItem == record.MaintenanceItem);
+            if (!scheduleMatches)
             {
-                throw new ArgumentException("The maintenance schedule must belong to the same vehicle.");
+                throw new ArgumentException("The maintenance schedule must belong to the same vehicle and service type.");
             }
         }
     }

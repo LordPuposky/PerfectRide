@@ -50,9 +50,17 @@ main::before {
   z-index: 1;
 }
 
+/* Links in the content area use a dark color for WCAG AA contrast
+   (#005b5e: 7.3:1 on the page background, 7.9:1 on white cards). */
 a,
 .btn-link {
-  color: var(--coolGray);
+  color: var(--secondaryBackground);
+}
+
+/* Links in the teal top bar (for example, About) stay light. */
+.top-row a,
+.top-row .btn-link {
+  color: var(--white);
 }
 
 .btn-primary {
