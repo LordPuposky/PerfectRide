@@ -69,6 +69,7 @@
 }
 
 .vehicle-card-header {
+  display: flex;
   background-color: var(--primaryBackground);
   color: var(--white);
   padding: 10px 14px;
@@ -76,6 +77,13 @@
   font-weight: 700;
   border-bottom: 5px solid var(--accent);
   letter-spacing: 0.2px;
+  width: 100%;
+}
+
+.vehicle-card-header a {
+  color: var(--white);
+  margin-left: auto;
+  text-decoration: none;
 }
 
 .vehicle-card-body {

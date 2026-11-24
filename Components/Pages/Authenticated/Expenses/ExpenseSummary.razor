@@ -1,0 +1,211 @@
+@page "/authenticated/expenses/{VehicleId:int}"
+@rendermode InteractiveServer
+
+@using System.Security.Claims
+@using PerfectRide.Data
+@using PerfectRide.Helpers
+@using System.Globalization
+
+@inject VehicleService VehicleService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject MaintenanceService MaintenanceService
+@inject FuelService FuelService
+@inject MileageTrackingService MileageTrackingService
+@inject NavigationManager Nav
+
+<PageTitle>Vehicle Expense Summary</PageTitle>
+
+@if (_isLoading)
+{
+    <div class="expense-summary-page">
+        <p class="expense-loading">Loading vehicle expense summary...</p>
+    </div>
+}
+else if (_vehicle is null)
+{
+    <div class="expense-summary-page">
+        <div class="expense-empty-state">
+            <h1>Vehicle not found</h1>
+            <p>This vehicle does not exist or does not belong to your account.</p>
+            <a class="btn btn-outline-secondary btn-sm" href="/authenticated/vehicles">&larr; Back to vehicles</a>
+        </div>
+    </div>
+}
+else
+{
+    <div class="expense-summary-page">
+        <header class="expense-summary-header">
+            <div>
+                <p class="expense-summary-eyebrow">Vehicle Costs</p>
+                <h1>Expense Summary</h1>
+                <p class="expense-vehicle-name">@_vehicleName</p>
+            </div>
+            <a class="expense-back-link" href="/authenticated/vehicles">&larr; Back to vehicles</a>
+        </header>
+
+        @if (_records.Count == 0)
+        {
+            <div class="expense-empty-state">
+                <h2>No expenses recorded</h2>
+                <p>No costs have been associated with this vehicle yet.</p>
+            </div>
+        }
+        else
+        {
+            <div class="expense-filter-card">
+                <div class="expense-filter-control">
+                    <label for="timePeriod" class="form-label">Time period</label>
+                    <select id="timePeriod" class="form-select"
+                            @bind="_selectedPeriod"
+                            @bind:after="ApplyTimePeriodFilter">
+                        <option value="0">All time</option>
+                        <option value="30">Last 30 days</option>
+                        <option value="90">Last 90 days</option>
+                        <option value="182">Last 6 months</option>
+                        <option value="365">Last 12 months</option>
+                    </select>
+                </div>
+                <div class="expense-period-total">
+                    <span>Period total</span>
+                    <strong>@_totalCost.ToString("C", CultureInfo.GetCultureInfo("en-US"))</strong>
+                    <small>@_filteredRecords.Count expense@(_filteredRecords.Count == 1 ? "" : "s")</small>
+                </div>
+            </div>
+
+            <div class="expense-table-card">
+                <div class="table-responsive">
+                    <table class="table table-striped align-middle">
+                        <caption>Vehicle costs for @_vehicleName, newest first</caption>
+                        <thead>
+                            <tr>
+                                <th scope="col">Date</th>
+                                <th scope="col">Source</th>
+                                <th scope="col">Mileage</th>
+                                <th scope="col">Cost</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var record in _filteredRecords)
+                            {
+                                var date = record.Date.ToString("MMM d, yyyy", CultureInfo.GetCultureInfo("en-US"));
+                                <tr>
+                                    <td>@date</td>
+                                    <td>@record.Source</td>
+                                    <td>@record.Mileage.ToString("N0") miles</td>
+                                    <td class="expense-cost">@record.Cost.ToString("C", CultureInfo.GetCultureInfo("en-US"))</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter]
+    public int VehicleId { get; set; }
+
+    private sealed class CostRecord
+    {
+        public CostRecord(DateOnly date, string source, int mileage, decimal cost)
+        {
+            Date = date;
+            Source = source;
+            Mileage = mileage;
+            Cost = cost;
+        }
+
+        public DateOnly Date { get; }
+        public string Source { get; }
+        public int Mileage { get; }
+        public decimal Cost { get; }
+    }
+
+    private string _selectedPeriod = "0";
+    private Vehicle? _vehicle;
+    private string _vehicleName = "";
+    private readonly List<CostRecord> _records = new();
+    private readonly List<CostRecord> _filteredRecords = new();
+    private decimal _totalCost;
+    private bool _isLoading = true;
+    private string? _userId;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _records.Clear();
+        _filteredRecords.Clear();
+        _totalCost = 0;
+        _vehicle = null;
+        _isLoading = true;
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        _userId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (string.IsNullOrEmpty(_userId))
+        {
+            Nav.NavigateTo("/Login");
+            return;
+        }
+
+        var userVehicles = await VehicleService.GetVehiclesAsync(_userId);
+        _vehicle = userVehicles.FirstOrDefault(v => v.Id == VehicleId);
+
+        if (_vehicle is null)
+        {
+            _isLoading = false;
+            return;
+        }
+
+        _vehicleName = $"{_vehicle.Year} {_vehicle.Make} {_vehicle.Model}";
+        var maintenanceRecords = await MaintenanceService.GetRecordsForVehicleAsync(_vehicle.Id, _userId);
+        var fuelRecords = await FuelService.GetFuelRecordsForVehicleAsync(_vehicle.Id, _userId);
+        var mileageTrackings = await MileageTrackingService.GetMileageTrackingsByUser(_userId);
+
+        foreach (MaintenanceRecord record in maintenanceRecords)
+        {
+            var tracking = mileageTrackings.FirstOrDefault(t => t.Id == record.MileageTrackingId);
+            if (tracking is not null)
+            {
+                _records.Add(new CostRecord(
+                    record.DatePerformed,
+                    $"Maintenance Record {record.Id}, {DisplayNameHelper.ToDisplayName(record.MaintenanceItem)}",
+                    tracking.Mileage,
+                    record.Cost ?? 0));
+            }
+        }
+
+        foreach (FuelRecord record in fuelRecords)
+        {
+            var tracking = mileageTrackings.FirstOrDefault(t => t.Id == record.MileageTrackingId);
+            if (tracking is not null)
+            {
+                _records.Add(new CostRecord(
+                    record.DateFilled,
+                    $"Fuel Record {record.Id}",
+                    tracking.Mileage,
+                    record.TotalCost));
+            }
+        }
+
+        ApplyTimePeriodFilter();
+        _isLoading = false;
+    }
+
+    private void ApplyTimePeriodFilter()
+    {
+        int.TryParse(_selectedPeriod, out int days);
+
+        IEnumerable<CostRecord> filteredRecords = _records;
+        if (days > 0)
+        {
+            var beginningDate = DateOnly.FromDateTime(DateTime.Now).AddDays(-days);
+            filteredRecords = filteredRecords.Where(record => record.Date >= beginningDate);
+        }
+
+        _filteredRecords.Clear();
+        _filteredRecords.AddRange(filteredRecords.OrderByDescending(record => record.Date));
+        _totalCost = _filteredRecords.Sum(record => record.Cost);
+    }
+}

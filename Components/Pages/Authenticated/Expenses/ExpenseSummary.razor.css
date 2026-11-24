@@ -1,0 +1,218 @@
+.expense-summary-page {
+  max-width: 1320px;
+  margin: 0 auto;
+}
+
+.expense-summary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid #dbe4e8;
+}
+
+.expense-summary-eyebrow {
+  margin: 0 0 0.25rem;
+  color: var(--secondaryBackground);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.expense-summary-header h1 {
+  margin: 0;
+  color: var(--primaryBackground);
+  font-size: clamp(1.65rem, 2.5vw, 2.25rem);
+  line-height: 1.1;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+
+.expense-vehicle-name {
+  margin: 0.45rem 0 0;
+  color: #687985;
+  font-size: 1rem;
+}
+
+.expense-back-link {
+  flex: 0 0 auto;
+  color: var(--secondaryBackground);
+  font-size: 0.82rem;
+  font-weight: 750;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.expense-back-link:hover {
+  color: var(--primaryBackground);
+  text-decoration: underline;
+}
+
+.expense-filter-card {
+  display: grid;
+  grid-template-columns: minmax(220px, 400px) minmax(180px, 1fr);
+  gap: 1rem;
+  align-items: stretch;
+  margin-bottom: 1.25rem;
+  padding: 1.25rem;
+  border: 1px solid #dce5e8;
+  border-radius: 14px;
+  background: var(--white);
+  box-shadow: 0 6px 18px rgba(20, 43, 58, 0.07);
+}
+
+.expense-filter-control {
+  padding-right: 1.25rem;
+  border-right: 1px solid #e5ecef;
+}
+
+.expense-filter-control label {
+  color: var(--primaryBackground);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.expense-filter-control select {
+  min-height: 42px;
+  border: 1px solid #ced8dd;
+  border-radius: 8px;
+}
+
+.expense-filter-control select:focus {
+  border-color: var(--secondaryBackground);
+  box-shadow: 0 0 0 0.2rem rgba(0, 91, 94, 0.12);
+}
+
+.expense-period-total {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.15rem;
+  min-width: 0;
+  padding: 0.35rem 0.25rem;
+}
+
+.expense-period-total span {
+  color: var(--secondaryBackground);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.expense-period-total strong {
+  color: var(--primaryBackground);
+  font-size: clamp(1.45rem, 3vw, 2rem);
+  line-height: 1.1;
+}
+
+.expense-period-total small {
+  color: #687985;
+}
+
+.expense-table-card {
+  padding: 1.25rem;
+  overflow: hidden;
+  border: 1px solid #dce5e8;
+  border-radius: 14px;
+  background: var(--white);
+  box-shadow: 0 6px 18px rgba(20, 43, 58, 0.07);
+}
+
+.expense-table-card table {
+  margin-bottom: 0;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.expense-table-card thead th {
+  padding: 0.85rem 0.75rem;
+  border-bottom: 5px solid var(--accent);
+  background: var(--primaryBackground);
+  color: var(--white);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.expense-table-card thead th:first-child {
+  border-radius: 8px 0 0 0;
+}
+
+.expense-table-card thead th:last-child {
+  border-radius: 0 8px 0 0;
+}
+
+.expense-table-card tbody td {
+  padding: 0.8rem 0.75rem;
+  border-color: #e8edf0;
+  vertical-align: middle;
+}
+
+.expense-table-card tbody tr:hover {
+  background: #edf4f5;
+}
+
+.expense-table-card caption {
+  padding: 0 0 0.75rem;
+  caption-side: top;
+  color: var(--primaryBackground);
+  font-size: 1.1rem;
+  font-weight: 750;
+}
+
+.expense-cost {
+  color: var(--primaryBackground);
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.expense-empty-state,
+.expense-loading {
+  padding: 1.25rem;
+  border: 1px solid #dce5e8;
+  border-radius: 14px;
+  background: var(--white);
+  box-shadow: 0 6px 18px rgba(20, 43, 58, 0.07);
+}
+
+.expense-empty-state h1,
+.expense-empty-state h2 {
+  color: var(--primaryBackground);
+  font-size: 1.35rem;
+  font-weight: 750;
+}
+
+.expense-empty-state p {
+  margin-bottom: 0.75rem;
+  color: #687985;
+}
+
+@media (max-width: 575.98px) {
+  .expense-summary-header {
+    align-items: flex-start;
+  }
+
+  .expense-summary-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .expense-filter-card {
+    grid-template-columns: 1fr;
+  }
+
+  .expense-filter-control {
+    padding-right: 0;
+    padding-bottom: 1rem;
+    border-right: 0;
+    border-bottom: 1px solid #e5ecef;
+  }
+
+  .expense-table-card {
+    padding: 0.75rem;
+  }
+}
