@@ -115,8 +115,8 @@ public class MaintenanceScheduleService(ApplicationDbContext context)
     }
 
     /// <summary>
-    /// Updates a schedule. If the service type changes, the old records are unlinked
-    /// and the records of the new service type are linked instead.
+    /// Updates a schedule. If the service type changes, the old records are unlinked.
+    /// Earlier records of the schedule's service type that have no schedule are linked to it.
     /// Returns false if the schedule does not exist or belongs to another user.
     /// </summary>
     public async Task<bool> UpdateScheduleAsync(MaintenanceSchedule updated, string userId)
@@ -153,9 +153,10 @@ public class MaintenanceScheduleService(ApplicationDbContext context)
                 {
                     record.MaintenanceScheduleId = null;
                 }
-
-                await LinkUnscheduledRecordsAsync(existing);
             }
+
+            // Link earlier records of this service type that have no schedule yet.
+            await LinkUnscheduledRecordsAsync(existing);
 
             await context.SaveChangesAsync();
             await transaction.CommitAsync();
