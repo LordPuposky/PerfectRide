@@ -28,7 +28,8 @@
             </div>
             <div class="card-body">
                 <p class="card-text"><strong>Date:</strong> @fuelRecord.DateFilled.ToString("MM/dd/yyyy")</p>
-                <p class="card-text"><strong>Mileage:</strong> @(fuelRecord.MileageTracking?.Mileage.ToString("N0")) miles</p>
+                <p class="card-text"><strong>Mileage:</strong> @(fuelRecord.MileageTracking?.Mileage.ToString("N0")) miles
+                </p>
                 <p class="card-text"><strong>Gallons:</strong> @fuelRecord.Gallons.ToString("N2")</p>
                 <p class="card-text"><strong>Price Per Gallon:</strong> $@fuelRecord.PricePerGallon.ToString("N2")</p>
                 <p class="card-text"><strong>Total Cost:</strong> $@fuelRecord.TotalCost.ToString("N2")</p>
@@ -81,11 +82,28 @@
         if (fuelRecord == null) return;
 
         var vehicleId = fuelRecord.VehicleId;
+        var mileageTracking = fuelRecord.MileageTracking;
 
         try
         {
+            await using var transaction = await Db.Database.BeginTransactionAsync();
+
             Db.FuelRecords.Remove(fuelRecord);
             await Db.SaveChangesAsync();
+
+            if (mileageTracking != null)
+            {
+                bool isUsedByMaintenance = await Db.MaintenanceRecords
+                    .AnyAsync(m => m.MileageTrackingId == mileageTracking.Id);
+
+                if (!isUsedByMaintenance)
+                {
+                    Db.MileageTrackings.Remove(mileageTracking);
+                    await Db.SaveChangesAsync();
+                }
+            }
+
+            await transaction.CommitAsync();
             Nav.NavigateTo($"/authenticated/vehicles/{vehicleId}");
         }
         catch

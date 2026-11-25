@@ -108,15 +108,43 @@
         mileageError = currentMileage == null || currentMileage < 0 || currentMileage > 999999;
         if (mileageError) return;
 
-        fuelRecord!.TotalCost = Math.Round(fuelRecord.Gallons * fuelRecord.PricePerGallon, 2);
+        if (fuelRecord == null) return;
+
+        var vehicleId = fuelRecord.VehicleId;
+        var oldMileageTracking = fuelRecord.MileageTracking;
+
+        var newFuelRecord = new FuelRecord
+        {
+            VehicleId = vehicleId,
+            DateFilled = fuelRecord.DateFilled,
+            Gallons = fuelRecord.Gallons,
+            PricePerGallon = fuelRecord.PricePerGallon,
+            TotalCost = Math.Round(fuelRecord.Gallons * fuelRecord.PricePerGallon, 2),
+            IsFullTank = fuelRecord.IsFullTank
+        };
 
         await using var transaction = await Db.Database.BeginTransactionAsync();
 
         try
         {
+            Db.FuelRecords.Remove(fuelRecord);
+            await Db.SaveChangesAsync();
+
+            if (oldMileageTracking != null)
+            {
+                bool isUsedByMaintenance = await Db.MaintenanceRecords
+                    .AnyAsync(m => m.MileageTrackingId == oldMileageTracking.Id);
+
+                if (!isUsedByMaintenance)
+                {
+                    Db.MileageTrackings.Remove(oldMileageTracking);
+                    await Db.SaveChangesAsync();
+                }
+            }
+
             var mileageTracking = await MileageTrackingService.AssignMileageTrackingRecord(
-                fuelRecord.VehicleId,
-                fuelRecord.DateFilled,
+                vehicleId,
+                newFuelRecord.DateFilled,
                 currentMileage!.Value,
                 MileageSource.FuelRecord
             );
@@ -126,12 +154,13 @@
                 Db.MileageTrackings.Add(mileageTracking);
             }
 
-            fuelRecord.MileageTracking = mileageTracking;
+            newFuelRecord.MileageTracking = mileageTracking;
+            Db.FuelRecords.Add(newFuelRecord);
 
             await Db.SaveChangesAsync();
             await transaction.CommitAsync();
 
-            Nav.NavigateTo($"/authenticated/vehicles/{fuelRecord.VehicleId}");
+            Nav.NavigateTo($"/authenticated/vehicles/{vehicleId}");
         }
         catch
         {
