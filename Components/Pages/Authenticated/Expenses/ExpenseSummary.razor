@@ -91,7 +91,7 @@ else
                                 <tr>
                                     <td>@date</td>
                                     <td>@record.Source</td>
-                                    <td>@record.Mileage.ToString("N0") miles</td>
+                                    <td>@record.Mileage.ToString("N0", CultureInfo.GetCultureInfo("en-US")) miles</td>
                                     <td class="expense-cost">@record.Cost.ToString("C", CultureInfo.GetCultureInfo("en-US"))</td>
                                 </tr>
                             }
@@ -195,7 +195,7 @@ else
 
     private void ApplyTimePeriodFilter()
     {
-        int.TryParse(_selectedPeriod, out int days);
+        int.TryParse(_selectedPeriod, NumberStyles.Integer, CultureInfo.GetCultureInfo("en-US"), out int days);
 
         IEnumerable<CostRecord> filteredRecords = _records;
         if (days > 0)

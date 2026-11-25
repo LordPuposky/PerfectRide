@@ -1,4 +1,5 @@
 @using System.Security.Claims
+@using System.Globalization
 @using PerfectRide.Data
 @using PerfectRide.Services
 @using PerfectRide.Helpers
@@ -68,7 +69,7 @@
                                 <NavLink href="/Authenticated/mileage">See Vehicle Mileage Records</NavLink>
                                 @if (mileage.HasValue)
                                 {
-                                    <strong>@mileage.Value.ToString("N0") Miles</strong>
+                                    <strong>@mileage.Value.ToString("N0", UsCulture) Miles</strong>
                                 }
                                 else
                                 {
@@ -94,7 +95,7 @@
                                 <span class="info-label">Average fuel economy</span>
                                 @if (averageFuelMileage.HasValue)
                                 {
-                                <strong>@($"{averageFuelMileage:F1} MPG")</strong>
+                                <strong>@($"{averageFuelMileage.Value.ToString("F1", UsCulture)} MPG")</strong>
                                 } else
                                 {
                                     <span>Not enough information to calculate fuel mileage</span>
@@ -127,6 +128,7 @@
 </div>
 
 @code {
+    private static readonly CultureInfo UsCulture = CultureInfo.GetCultureInfo("en-US");
     private List<Vehicle> _vehicles = new();
     private bool _isLoading = true;
     private string? _errorMessage;

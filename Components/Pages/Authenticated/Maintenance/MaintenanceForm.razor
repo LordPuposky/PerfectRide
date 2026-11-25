@@ -1,6 +1,7 @@
 @using PerfectRide.Data
 @using PerfectRide.Helpers
 @using PerfectRide.Models
+@using System.Globalization
 
 @* Shared form used by the Add and Edit maintenance pages. *@
 
@@ -28,7 +29,7 @@
         <div class="col-md-6">
             <label for="date-performed" class="form-label">Date (required)</label>
             <InputDate id="date-performed" class="form-control" @bind-Value="Model.DatePerformed"
-                       max="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                       max="@DateTime.Today.ToString("yyyy-MM-dd", CultureInfo.GetCultureInfo("en-US"))" />
             <ValidationMessage For="() => Model.DatePerformed" class="text-danger" />
         </div>
 

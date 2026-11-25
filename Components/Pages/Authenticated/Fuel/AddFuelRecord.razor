@@ -28,7 +28,7 @@
 
             <div class="mb-3">
                 <label class="form-label">Date Filled <span class="text-danger">*</span></label>
-                <InputDate class="form-control" @bind-Value="fuelRecord.DateFilled" @bind-Value:format="MM/dd/yyyy" max="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                <InputDate class="form-control" @bind-Value="fuelRecord.DateFilled" @bind-Value:format="MM/dd/yyyy" max="@DateTime.Today.ToString("yyyy-MM-dd", CultureInfo.GetCultureInfo("en-US"))" />
                 <ValidationMessage For="() => fuelRecord.DateFilled" class="text-danger" />
             </div>
 

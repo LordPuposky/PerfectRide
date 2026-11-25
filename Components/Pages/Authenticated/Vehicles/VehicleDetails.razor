@@ -1,4 +1,5 @@
 @page "/authenticated/vehicles/{Id:int}"
+@using System.Globalization
 @using Microsoft.EntityFrameworkCore
 @using PerfectRide.Data
 @inject ApplicationDbContext Db
@@ -42,7 +43,7 @@
                 }
                 @if (latestMileage != null)
                 {
-                    <p class="card-text"><strong>Current Mileage:</strong> @latestMileage.Mileage.ToString("N0") miles</p>
+                    <p class="card-text"><strong>Current Mileage:</strong> @latestMileage.Mileage.ToString("N0", UsCulture) miles</p>
                 }
             </div>
         </div>
@@ -103,11 +104,11 @@
                             @foreach (var record in displayedRecords)
                             {
                                 <tr>
-                                    <td>@record.DateFilled.ToString("MM/dd/yyyy")</td>
-                                    <td>@(record.MileageTracking?.Mileage.ToString("N0")) miles</td>
-                                    <td>@record.Gallons.ToString("N2")</td>
-                                    <td>$@record.PricePerGallon.ToString("N2")</td>
-                                    <td>$@record.TotalCost.ToString("N2")</td>
+                                    <td>@record.DateFilled.ToString("MM/dd/yyyy", UsCulture)</td>
+                                    <td>@(record.MileageTracking?.Mileage.ToString("N0", UsCulture)) miles</td>
+                                    <td>@record.Gallons.ToString("N2", UsCulture)</td>
+                                    <td>$@record.PricePerGallon.ToString("N2", UsCulture)</td>
+                                    <td>$@record.TotalCost.ToString("N2", UsCulture)</td>
                                     <td>@(record.IsFullTank ? "Yes" : "No")</td>
                                     <td>
                                         <a href="/authenticated/fuel/edit/@record.Id" class="btn btn-sm btn-secondary me-1">Edit</a>
@@ -149,6 +150,8 @@
 </div>
 
 @code {
+    private static readonly CultureInfo UsCulture = CultureInfo.GetCultureInfo("en-US");
+
     [Parameter]
     public int Id { get; set; }
 
