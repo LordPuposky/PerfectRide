@@ -13,7 +13,7 @@ public class ScheduleFormModel
     [Required(ErrorMessage = "Please choose a service.")]
     public MaintenanceItem? MaintenanceItem { get; set; }
 
-    [Range(1, 100000, ErrorMessage = "The mileage interval must be between 1 and 100,000 miles.")]
+    [Range(100, 100000, ErrorMessage = "The mileage interval must be between 100 and 100,000 miles.")]
     public int? IntervalMileage { get; set; }
 
     [Range(1, 24, ErrorMessage = "The time interval must be between 1 and 24 months.")]

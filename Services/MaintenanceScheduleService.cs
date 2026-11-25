@@ -240,9 +240,9 @@ public class MaintenanceScheduleService(ApplicationDbContext context)
             throw new ArgumentException("Enter a mileage interval, a time interval, or both.");
         }
 
-        if (schedule.IntervalMileage is < 1 or > 100000)
+        if (schedule.IntervalMileage is < 100 or > 100000)
         {
-            throw new ArgumentException("The mileage interval must be between 1 and 100,000 miles.");
+            throw new ArgumentException("The mileage interval must be between 100 and 100,000 miles.");
         }
 
         if (schedule.IntervalMonths is < 1 or > 24)

@@ -30,7 +30,7 @@
         <div class="col-md-6">
             <label for="interval-mileage" class="form-label">Every how many miles</label>
             <InputNumber id="interval-mileage" class="form-control" @bind-Value="Model.IntervalMileage"
-                         min="1" max="100000" aria-describedby="interval-help" />
+                         min="100" max="100000" aria-describedby="interval-help" />
             <ValidationMessage For="() => Model.IntervalMileage" class="text-danger" />
         </div>
 
