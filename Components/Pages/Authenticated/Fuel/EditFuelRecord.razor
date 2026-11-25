@@ -1,0 +1,171 @@
+@page "/authenticated/fuel/edit/{Id:int}"
+@using PerfectRide.Data
+@using PerfectRide.Services
+@using Microsoft.EntityFrameworkCore
+@inject ApplicationDbContext Db
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthStateProvider
+@inject MileageTrackingService MileageTrackingService
+@rendermode InteractiveServer
+
+<PageTitle>Edit Fuel Record</PageTitle>
+
+<div class="container mt-4">
+    <h1>Edit Fuel Record</h1>
+
+    @if (fuelRecord == null)
+    {
+        <p>Loading...</p>
+    }
+    else
+    {
+        <h5 class="text-muted mb-4">@fuelRecord.Vehicle?.Year @fuelRecord.Vehicle?.Make @fuelRecord.Vehicle?.Model</h5>
+
+        <EditForm Model="fuelRecord" OnValidSubmit="HandleSubmit" FormName="edit-fuel-record">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger" />
+
+            <div class="mb-3">
+                <label class="form-label">Date Filled <span class="text-danger">*</span></label>
+                <InputDate class="form-control" @bind-Value="fuelRecord.DateFilled" @bind-Value:format="MM/dd/yyyy" max="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                <ValidationMessage For="() => fuelRecord.DateFilled" class="text-danger" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Mileage <span class="text-danger">*</span></label>
+                <InputNumber class="form-control" @bind-Value="currentMileage" placeholder="e.g. 45000" />
+                @if (mileageError)
+                {
+                    <span class="text-danger">Please enter a valid mileage of 0 or greater.</span>
+                }
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Gallons <span class="text-danger">*</span></label>
+                <InputNumber class="form-control" @bind-Value="fuelRecord.Gallons" placeholder="e.g. 12.5" />
+                <ValidationMessage For="() => fuelRecord.Gallons" class="text-danger" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Price Per Gallon <span class="text-danger">*</span></label>
+                <InputNumber class="form-control" @bind-Value="fuelRecord.PricePerGallon" placeholder="e.g. 3.50" />
+                <ValidationMessage For="() => fuelRecord.PricePerGallon" class="text-danger" />
+            </div>
+
+            <div class="mb-3 form-check">
+                <InputCheckbox class="form-check-input" @bind-Value="fuelRecord.IsFullTank" />
+                <label class="form-check-label">Full Tank</label>
+            </div>
+
+            @if (errorMessage != null)
+            {
+                <div class="alert alert-danger mt-3">@errorMessage</div>
+            }
+
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+            <a href="/authenticated/vehicles/@fuelRecord.VehicleId" class="btn btn-secondary ms-2">Cancel</a>
+        </EditForm>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private FuelRecord? fuelRecord;
+    private int? currentMileage = null;
+    private bool mileageError = false;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userId = authState.User
+            .FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        if (userId == null)
+        {
+            Nav.NavigateTo("/account/login");
+            return;
+        }
+
+        fuelRecord = await Db.FuelRecords
+            .Include(f => f.Vehicle)
+            .Include(f => f.MileageTracking)
+            .FirstOrDefaultAsync(f => f.Id == Id && f.Vehicle!.UserId == userId);
+
+        if (fuelRecord == null)
+        {
+            Nav.NavigateTo("/authenticated/vehicles");
+            return;
+        }
+
+        currentMileage = fuelRecord.MileageTracking?.Mileage;
+    }
+
+    private async Task HandleSubmit()
+    {
+        mileageError = currentMileage == null || currentMileage < 0 || currentMileage > 999999;
+        if (mileageError) return;
+
+        if (fuelRecord == null) return;
+
+        var vehicleId = fuelRecord.VehicleId;
+        var oldMileageTracking = fuelRecord.MileageTracking;
+
+        var newFuelRecord = new FuelRecord
+        {
+            VehicleId = vehicleId,
+            DateFilled = fuelRecord.DateFilled,
+            Gallons = fuelRecord.Gallons,
+            PricePerGallon = fuelRecord.PricePerGallon,
+            TotalCost = Math.Round(fuelRecord.Gallons * fuelRecord.PricePerGallon, 2),
+            IsFullTank = fuelRecord.IsFullTank
+        };
+
+        await using var transaction = await Db.Database.BeginTransactionAsync();
+
+        try
+        {
+            Db.FuelRecords.Remove(fuelRecord);
+            await Db.SaveChangesAsync();
+
+            if (oldMileageTracking != null)
+            {
+                bool isUsedByMaintenance = await Db.MaintenanceRecords
+                    .AnyAsync(m => m.MileageTrackingId == oldMileageTracking.Id);
+
+                if (!isUsedByMaintenance)
+                {
+                    Db.MileageTrackings.Remove(oldMileageTracking);
+                    await Db.SaveChangesAsync();
+                }
+            }
+
+            var mileageTracking = await MileageTrackingService.AssignMileageTrackingRecord(
+                vehicleId,
+                newFuelRecord.DateFilled,
+                currentMileage!.Value,
+                MileageSource.FuelRecord
+            );
+
+            if (Db.Entry(mileageTracking).State == Microsoft.EntityFrameworkCore.EntityState.Detached)
+            {
+                Db.MileageTrackings.Add(mileageTracking);
+            }
+
+            newFuelRecord.MileageTracking = mileageTracking;
+            Db.FuelRecords.Add(newFuelRecord);
+
+            await Db.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            Nav.NavigateTo($"/authenticated/vehicles/{vehicleId}");
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            errorMessage = "Something went wrong while saving the changes. Please try again.";
+        }
+    }
+}

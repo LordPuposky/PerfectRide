@@ -1,0 +1,114 @@
+@page "/authenticated/fuel/delete/{Id:int}"
+@using PerfectRide.Data
+@using Microsoft.EntityFrameworkCore
+@inject ApplicationDbContext Db
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthStateProvider
+@rendermode InteractiveServer
+
+<PageTitle>Delete Fuel Record</PageTitle>
+
+<div class="container mt-4">
+    <h1>Delete Fuel Record</h1>
+
+    @if (fuelRecord == null)
+    {
+        <p>Loading...</p>
+    }
+    else
+    {
+        <div class="alert alert-danger">
+            <h4>Are you sure you want to delete this fuel record?</h4>
+            <p>This action cannot be undone.</p>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">@fuelRecord.Vehicle?.Year @fuelRecord.Vehicle?.Make @fuelRecord.Vehicle?.Model</h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text"><strong>Date:</strong> @fuelRecord.DateFilled.ToString("MM/dd/yyyy")</p>
+                <p class="card-text"><strong>Mileage:</strong> @(fuelRecord.MileageTracking?.Mileage.ToString("N0")) miles
+                </p>
+                <p class="card-text"><strong>Gallons:</strong> @fuelRecord.Gallons.ToString("N2")</p>
+                <p class="card-text"><strong>Price Per Gallon:</strong> $@fuelRecord.PricePerGallon.ToString("N2")</p>
+                <p class="card-text"><strong>Total Cost:</strong> $@fuelRecord.TotalCost.ToString("N2")</p>
+                <p class="card-text"><strong>Full Tank:</strong> @(fuelRecord.IsFullTank ? "Yes" : "No")</p>
+            </div>
+        </div>
+
+        @if (errorMessage != null)
+        {
+            <div class="alert alert-danger mt-3">@errorMessage</div>
+        }
+
+        <button class="btn btn-danger" @onclick="HandleDelete">Yes, Delete Record</button>
+        <a href="/authenticated/vehicles/@fuelRecord.VehicleId" class="btn btn-secondary ms-2">Cancel</a>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private FuelRecord? fuelRecord;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userId = authState.User
+            .FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        if (userId == null)
+        {
+            Nav.NavigateTo("/account/login");
+            return;
+        }
+
+        fuelRecord = await Db.FuelRecords
+            .Include(f => f.Vehicle)
+            .Include(f => f.MileageTracking)
+            .FirstOrDefaultAsync(f => f.Id == Id && f.Vehicle!.UserId == userId);
+
+        if (fuelRecord == null)
+        {
+            Nav.NavigateTo("/authenticated/vehicles");
+        }
+    }
+
+    private async Task HandleDelete()
+    {
+        if (fuelRecord == null) return;
+
+        var vehicleId = fuelRecord.VehicleId;
+        var mileageTracking = fuelRecord.MileageTracking;
+
+        try
+        {
+            await using var transaction = await Db.Database.BeginTransactionAsync();
+
+            Db.FuelRecords.Remove(fuelRecord);
+            await Db.SaveChangesAsync();
+
+            if (mileageTracking != null)
+            {
+                bool isUsedByMaintenance = await Db.MaintenanceRecords
+                    .AnyAsync(m => m.MileageTrackingId == mileageTracking.Id);
+
+                if (!isUsedByMaintenance)
+                {
+                    Db.MileageTrackings.Remove(mileageTracking);
+                    await Db.SaveChangesAsync();
+                }
+            }
+
+            await transaction.CommitAsync();
+            Nav.NavigateTo($"/authenticated/vehicles/{vehicleId}");
+        }
+        catch
+        {
+            errorMessage = "Something went wrong while deleting the record. Please try again.";
+        }
+    }
+}
