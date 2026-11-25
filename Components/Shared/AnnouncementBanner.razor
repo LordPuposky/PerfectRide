@@ -2,6 +2,7 @@
 @implements IDisposable
 
 <div class="announcement-banner @MessageType">
+    @* Display the banner if a message is passed *@
     @if (!string.IsNullOrWhiteSpace(CurrentMessage))
     {
         <div class="announcement-track @(IsAnimated ? "scrolling" : "")">
@@ -34,6 +35,9 @@
             ? Messages[_currentIndex % Messages.Count]
             : Message;
 
+   @* When parameters are set, if there is more than one message
+   and no rotation cancellation source exists, create one
+   and start rotating through the messages. *@
     protected override void OnParametersSet()
     {
         if (Messages.Count > 1 && _rotationCts == null)
@@ -43,7 +47,7 @@
         }
     }
 
- 
+    @* Periodically advance to the next message and refresh the component. *@
     private async Task RotateMessagesAsync(CancellationToken cancellationToken)
     {
         try
@@ -72,6 +76,8 @@
 
    
 
+ @* Stop rotating through the messages and dispose of the 
+ cancellation token source. *@
   public void Dispose()
 {
     _rotationCts?.Cancel();

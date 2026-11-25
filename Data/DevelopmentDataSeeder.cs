@@ -1,4 +1,4 @@
-
+// Data for development and testing purposes. 
 
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;

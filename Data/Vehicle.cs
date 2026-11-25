@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace PerfectRide.Data;
 
+// Data definition class for Vehicle
 public class Vehicle
 {
     public int Id { get; set; }

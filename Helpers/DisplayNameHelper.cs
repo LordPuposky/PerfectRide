@@ -2,6 +2,8 @@ using System.Text.RegularExpressions;
 
 namespace PerfectRide.Helpers;
 
+
+//Converts Snake case to human readable for display purposes.
 public static class DisplayNameHelper
 {
     public static string ToDisplayName<T>(T value) where T : Enum

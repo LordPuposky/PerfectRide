@@ -13,6 +13,7 @@
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject ILogger<MaintenanceCard> Logger
 
+@* Card Header *@
 <div class="card dashboard-card maintenance-dashboard-card shadow-sm">
     <div class="card-body">
         <div class="dashboard-card-heading">
@@ -22,7 +23,7 @@
             </div>
             <a class="dashboard-card-action" href="/authenticated/maintenance">View maintenance <span aria-hidden="true">&rarr;</span></a>
         </div>
-
+        @* Show Loading State *@
         @if (_isLoading)
         {
             <p>Loading Maintenance Summary...</p>
@@ -44,6 +45,7 @@
                     <strong>Maintenance Overview</strong>
                     </div>
 
+                    @* Render Overdue services *@
                     <div class="maintenance-card-body">
                         <div class="maintenance-info @(_overdueServicesCount > 0 ? "maintenance-info-alert" : "")">
                         <strong>@_overdueServicesCount</strong>
@@ -52,6 +54,7 @@
                         </div>
                     </div>
 
+                    @* Render upcoming Services *@
                     <div class="maintenance-card-body">
                         <div class="maintenance-info">
                         <strong>@_upcomingServicesCount</strong>
@@ -60,12 +63,12 @@
                         </div>
                     </div>
 
+                    @* Render maintenance Summary across all vehicles *@
                     <div class="maintenance-card-header">
-                   
                     <strong>Maintenance Summary</strong>
                     </div>
 
-
+                    @* Render the number of services performed across all vehicles *@
                     <div class="maintenance-card-body">
                         <div class="maintenance-info">
                             <div>
@@ -77,6 +80,7 @@
                         </div>
                     </div>
 
+                    @* Render the number of vehicles serviced *@
                     <div class="maintenance-card-body">
                         <div class="maintenance-info">
                         <strong>@vehiclesServiced</strong>
@@ -84,6 +88,7 @@
                         </div>
                     </div>
 
+                    @* Render the total cost for vehicle maintenance *@
                     <div class="maintenance-card-body">
                         <div class="maintenance-info">
                         <strong>
@@ -93,6 +98,7 @@
                         </div>
                     </div>
 
+                    @* Render average cost per service *@
                     <div class="maintenance-card-body">
                         <div class="maintenance-info">
                         <strong>
@@ -102,7 +108,7 @@
                         </div>
                     </div>
 
-
+                    @* Render recent maintenance items performed *@
                     <div class="maintenance-card-header">
                     <strong>Recent Maintenance</strong>
                     </div>
@@ -138,6 +144,7 @@
         await LoadAsync();
     }
 
+    @* Gathers all needed information from Services and initializes variables with needed information. *@
     private async Task LoadAsync()
     {
         _isLoading = true;
@@ -150,17 +157,24 @@
         {
             var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
             var userId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
+            @* Verifies the session belongs to a valid logged in user *@
             if (string.IsNullOrWhiteSpace(userId))
             {
                 _errorMessage = "Unable to verify your account. Please sign in again.";
                 return;
             }
 
+            @* Retrieves mileage, vehicle, MileageTracking, and user maintenance schedules from DB and stores in local variables. *@
             Dictionary<int,int> vehicleCurrentMileages = await MileageTrackingService.GetCurrentMileageByUser(userId); 
             _userVehicles = await VehicleService.GetVehiclesAsync(userId);
             _mileageTrackings = await MileageTrackingService.GetMileageTrackingsByUser(userId);
             _userMaintenanceSchedule = await MaintenanceScheduleService.GetMaintenanceScheduleForUser(userId); 
+
+            @* Loops through each vehicle to 
+                * Retrieve Maintenance records associated with the vehicle
+                * Retrieve overdue services and count for each vehicle
+                * Retrieve upcoming services and cound for each vehicle 
+              Stores this information in local variables. *@
             foreach (Vehicle v in _userVehicles)
             {
 
@@ -178,9 +192,12 @@
                 _mileageTrackings, 
                 vehicleCurrentMileages);
 
+            @* Generates maintenance messages for the Message Banner and starts the Banner*@
             await GenerateMaintenanceMessages(); 
             await OnMessagesGenerated.InvokeAsync(_maintenanceMessages);
         }
+
+        @*Error handling for Message Banner *@
         catch (Exception ex)
         {
             Logger.LogError(ex, "Unable to load dashboard maintenance data.");
@@ -188,11 +205,19 @@
             _maintenanceMessages.Clear();
             await OnMessagesGenerated.InvokeAsync(_maintenanceMessages);
         }
+        @* Ensures page is still loaded without banner if Message Banner fails *@
         finally
         {
             _isLoading = false;
         }
     }
+
+    @* Uses data collected from server to calculate: 
+         *count of vehicles serviced 
+         *count of services performed
+         *total cost of services performed
+         *average cost of services performed
+      Saves this information into local variables. *@
     (int, int, decimal, decimal) CalculateServicesStatistics (int periodLength)
     {
         DateOnly today = DateOnly.FromDateTime(DateTime.Now);
@@ -231,15 +256,21 @@
     }
 
 
+@* Determines messages to display in the Banner.  
+   Displays Overdue services if present. 
+   Displays upcoming services if no services are overdue.
+   Displays  *@
 private async Task GenerateMaintenanceMessages()
 {
     _maintenanceMessages.Clear();
 
+    @* Determines whether to display overdue or upcoming services *@
     List<MaintenanceSchedule> servicesToDisplay =
         _overdueServices.Count > 0
             ? _overdueServices
             : _upcomingServices;
 
+    @* Builds a string for each selected service and stores it in the messages local variable  *@
     foreach (MaintenanceSchedule schedule in servicesToDisplay)
     {
         Vehicle? vehicle = _userVehicles
@@ -261,7 +292,7 @@ private async Task GenerateMaintenanceMessages()
         _maintenanceMessages.Add(
             $"{vehicleName}: {serviceName} {status}.");
     }
-
+    @* Displays a default message if there are no overdue or upcoming maintenance items. *@
     if (_maintenanceMessages.Count == 0)
     {
         _maintenanceMessages.Add(

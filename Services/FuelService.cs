@@ -5,6 +5,7 @@ namespace PerfectRide.Services;
 
 public class FuelService(ApplicationDbContext context)
 {
+    //Retrieves the fuel records for a single vehicle from the database.
     public async Task<List<FuelRecord>> GetFuelRecordsForVehicleAsync(int vehicleId, string userId)
     {
         return await context.FuelRecords

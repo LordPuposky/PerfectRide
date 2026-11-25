@@ -2,6 +2,8 @@ using System.ComponentModel.DataAnnotations;
 
 namespace PerfectRide.Data;
 
+
+//Data type definition for MaintenanceRecord
 public class MaintenanceRecord
 {
     public int Id { get; set; }

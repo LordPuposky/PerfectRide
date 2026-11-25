@@ -1,5 +1,7 @@
 namespace PerfectRide.Services;
 
+
+//Manages state for the announcement banner on all pages.
 public class AnnouncementState
 {
     public string Message { get; private set; } = "";

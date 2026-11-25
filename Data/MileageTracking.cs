@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace PerfectRide.Data;
 
+// Enum definition for acceptable MileageSource
 public enum MileageSource
 {
     Manual,
@@ -9,6 +10,7 @@ public enum MileageSource
     MaintenanceRecord
 }
 
+// Data definition class for MileageTracking
 public class MileageTracking
 {
     public int Id { get; set; }

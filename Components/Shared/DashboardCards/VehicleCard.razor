@@ -15,6 +15,8 @@
 
 <div class="card dashboard-card vehicle-dashboard-card shadow-sm">
     <div class="card-body">
+
+        @* Header *@
         <div class="dashboard-card-heading">
             <div>
                 <p class="dashboard-card-eyebrow">Fleet</p>
@@ -22,7 +24,7 @@
             </div>
             <a class="dashboard-card-action" href="/authenticated/vehicles">View vehicles <span aria-hidden="true">&rarr;</span></a>
         </div>
-
+        @* Loading, empty, or error state *@
         @if (_isLoading)
         {
             <p>Loading vehicles...</p>
@@ -40,6 +42,8 @@
         }
         else
         {
+
+            @* Loop through user vehicles and create a card for each vehicle.  Render the card. *@
             @foreach (var vehicle in _vehicles)
             {
                 <div class="vehicle-card">
@@ -48,6 +52,8 @@
                     </div>
 
                     <div class="vehicle-card-body">
+
+                        @* Vehicle identity info *@
                         <div class="vehicle-info">
                             @{
                                 int? mileage = GetVehicleMileage(vehicle.Id);
@@ -55,6 +61,7 @@
                                 (decimal? averageFuelMileage, int? fillUps) = GetFuelStatistics(vehicle.Id);
                             }
 
+                            @* Vehicle mileage info *@
                             <div>
                                 <span class="info-label">Current Mileage: </span>
                                 <NavLink href="/Authenticated/mileage">See Vehicle Mileage Records</NavLink>
@@ -67,6 +74,8 @@
                                     <span>No Mileage Recorded</span>
                                 }
                             </div>
+
+                            @* Vehicle fuel fill-ups count. *@
                             <div>
                                 <span class="info-label">Fuel fill-ups</span>
                                 @if (fillUps.HasValue)
@@ -78,6 +87,8 @@
                                 }
 
                             </div>
+
+                            @* Average fuel economy calculation for vehicle *@
                             <div>
                                 <span class="info-label">Average fuel economy</span>
                                 @if (averageFuelMileage.HasValue)
@@ -88,6 +99,8 @@
                                     <span>Not enough information to calculate fuel mileage</span>
                                 }
                             </div>
+
+                            @* Maintenance Schedule count for vehicle *@
                             <div>
                                 <span class="info-label">Maintenance Schedules</span>
                                 @if (scheduleCount.HasValue)
@@ -97,9 +110,9 @@
                                 {
                                     <span>Vehicle has no maintenance schedules</span>
                                 }
-
                             </div>
 
+                            @* Last maintenance item completed on vehicle. *@
                             <div>
                                 <span class="info-label">Last Maintenance</span>
                                 <strong>@GetLatestMaintenance(vehicle)</strong>
@@ -141,6 +154,7 @@
 
         try
         {
+            @* User authorization *@
             var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
             var userId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrWhiteSpace(userId))
@@ -149,7 +163,10 @@
                 return;
             }
 
+            @* Load user's vehicles *@
             _vehicles = await VehicleService.GetVehiclesAsync(userId);
+
+            @* Retrieve Maintenance schedules, fuel records, mileage records, and maintenance records for user's vehicles. *@
             foreach (Vehicle vehicle in _vehicles)
             {
                 List<MaintenanceSchedule> schedules =
@@ -161,16 +178,15 @@
                 List<MaintenanceRecord> records =
                     await MaintenanceService.GetRecordsForVehicleAsync(vehicle.Id, userId);
 
+                @* Count total service schedules for vehicle.  Store this count and individual vehicle's 
+                maintenance records in local variable *@
                 _scheduleCounts[vehicle.Id] = schedules.Count > 0 ? schedules.Count : null;
                 _maintenanceRecords[vehicle.Id] = records;
 
-                (decimal average, int fillUps) =
-                    _fuelMileageStatistics.GetFuelMileageStatistics(fuelRecords, mileageTrackings, userId);
-                _fuelStatistics[vehicle.Id] =
-                    (average > 0 ? average : null, fillUps > 0 ? fillUps : null);
-
-                _vehicleMileages[vehicle.Id] =
-                    await MileageTrackingService.GetCurrentVehicleMileage(vehicle.Id, userId);
+                @* Calculate average fuel mileage, mileage, and total fill-ups for vehicle.  Save results in variable *@
+                (decimal average, int fillUps) = _fuelMileageStatistics.GetFuelMileageStatistics(fuelRecords, mileageTrackings, userId);
+                _fuelStatistics[vehicle.Id] = (average > 0 ? average : null, fillUps > 0 ? fillUps : null);
+                _vehicleMileages[vehicle.Id] = await MileageTrackingService.GetCurrentVehicleMileage(vehicle.Id, userId);
             }
         }
         catch (Exception ex)
@@ -184,19 +200,23 @@
         }
     }
 
+    @* Retrieve vehicle's highest mileage value or return null. *@
     private int? GetVehicleMileage(int vehicleId) =>
         _vehicleMileages.TryGetValue(vehicleId, out int? mileage) ? mileage : null;
 
+    @* Retrieve a count of MaintenanceSchedules associated with a vehicle or return null *@
     private int? GetScheduleCount(int vehicleId) =>
         _scheduleCounts.TryGetValue(vehicleId, out int? count) ? count : null;
 
+    @* Retrieve the average fuel economy and the total fill-ups count of a vehicle or return null *@
     private (decimal? Average, int? FillUps) GetFuelStatistics(int vehicleId) =>
         _fuelStatistics.TryGetValue(vehicleId, out var statistics)
             ? statistics
             : (null, null);
 
 
-
+    @* Retrieve the latest maintenance record, format it into a string and return it, or 
+    return the default string if no maintenance items are present. *@
     private string GetLatestMaintenance(Vehicle vehicle)
     {
         MaintenanceRecord? latest = _maintenanceRecords.TryGetValue(vehicle.Id, out var records)

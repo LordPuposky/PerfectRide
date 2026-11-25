@@ -1,7 +1,7 @@
-@implements IDisposable
 
 @inject NavigationManager NavigationManager
 
+@* Page Title, Responsive Nav Bar *@
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid d-flex justify-content-between align-items-center">
         <a class="navbar-brand" href="/">PerfectRide</a>
@@ -13,62 +13,141 @@
 
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
     <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="/" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="/Authenticated/Dashboard">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Dashboard
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="/authenticated/vehicles">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> My Vehicles
-            </NavLink>
-        </div>
-
-                <div class="nav-item px-3">
-            <NavLink class="nav-link" href="/authenticated/vehicles/add">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Add Vehicle 
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="/authenticated/Maintenance">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Maintenance Schedules
-            </NavLink>
-        </div>
-
-                <div class="nav-item px-3">
-            <NavLink class="nav-link" href="/authenticated/fuel">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Fuel Records
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="/authenticated/mileage">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Mileage Tracking
-            </NavLink>
-        </div>
-
-                <div class="nav-item px-3">
-            <NavLink class="nav-link" href="/authenticated/documents">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Upload Documents
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="auth">
-                <span class="bi bi-lock-nav-menu" aria-hidden="true"></span> Auth Required
-            </NavLink>
-        </div>
-
+@* Navigation controls show only if user is logged in and authorized to view *@
         <AuthorizeView>
             <Authorized>
+
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="/Authenticated/Dashboard">
+                        <svg    class="nav-icon"
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                >
+                                <rect x="14" y="12" width="7" height="9" rx="1" />
+                                <rect x="14" y="3" width="7" height="5" rx="1" />
+                                <rect x="3" y="16" width="7" height="5" rx="1" />
+                                <rect x="3" y="3" width="7" height="9" rx="1" />
+                            </svg>
+                            Dashboard
+                    </NavLink>
+                </div>
+
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="/authenticated/vehicles">
+                        <svg
+                            class="nav-icon"
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                        >
+                        <path d="M17 14h.01" />
+                        <path d="M19 18v2" />
+                        <path d="m21 8-2 2-1.5-3.7A2 2 0 0 0 15.646 5H8.4a2 2 0 0 0-1.903 1.257L5 10 3 8" />
+                        <path d="M5 18v2" />
+                        <path d="M7 14h.01" />
+                        <rect x="3" y="10" width="18" height="8" rx="2" />
+                        </svg>
+
+                        My Vehicles
+                    </NavLink>
+                </div>
+
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="/authenticated/vehicles/add">
+                        <svg 
+                            class="nav-icon nav-child"
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            <g transform="translate(-1 5) scale(0.65)">
+                                <path d="M17 14h.01" />
+                                <path d="M19 18v2" />
+                                <path d="m21 8-2 2-1.5-3.7A2 2 0 0 0 15.646 5H8.4a2 2 0 0 0-1.903 1.257L5 10 3 8" />
+                                <path d="M5 18v2" />
+                                <path d="M7 14h.01" />
+                                <rect x="3" y="10" width="18" height="8" rx="2" />
+                            </g>
+                            <path d="M18 8v8" />
+                            <path d="M14 12h8" />
+
+                        </svg>
+
+                    Add Vehicle 
+                    </NavLink>
+                </div>
+
+                 <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="/authenticated/maintenance">
+                        <svg
+                            class="nav-icon"
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            >
+                            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.106-3.105c.32-.322.863-.22.983.218a6 6 0 0 1-8.259 7.057l-7.91 7.91a1 1 0 0 1-2.999-3l7.91-7.91a6 6 0 0 1 7.057-8.259c.438.12.54.662.219.984z" />
+                        </svg>
+                        
+                        Vehicle Maintenance
+                    </NavLink>
+                </div>
+
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="/authenticated/schedules">
+                        <svg
+                            class="nav-icon"
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            >
+                            <path d="M12 13h.01" />
+                            <path d="M12 17h.01" />
+                            <path d="M16 13h.01" />
+                            <path d="M16 17h.01" />
+                            <path d="M16 2v3" />
+                            <path d="M3 9h18" />
+                            <path d="M8 13h.01" />
+                            <path d="M8 17h.01" />
+                            <path d="M8 2v3" />
+                            <rect x="3" y="3" width="18" height="18" rx="2" />
+                        </svg>
+                        
+                        Maintenance Schedules
+                    </NavLink>
+                </div>
+
+
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="/authenticated/schedules/add">
+                        <svg
+                            class="nav-icon nav-child"
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            >
+                            <g transform="translate(-1 5) scale(0.65)">
+                                <path d="M12 13h.01" />
+                                <path d="M12 17h.01" />
+                                <path d="M16 13h.01" />
+                                <path d="M16 17h.01" />
+                                <path d="M16 2v3" />
+                                <path d="M3 9h18" />
+                                <path d="M8 13h.01" />
+                                <path d="M8 17h.01" />
+                                <path d="M8 2v3" />
+                                <rect x="3" y="3" width="18" height="18" rx="2" />
+                            </g>
+                            <path d="M18 8v8" />
+                            <path d="M14 12h8" />
+
+                        </svg>               
+                        
+                        Add Schedule 
+                    </NavLink>
+                </div>
+
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="Account/Manage">
                         <span class="bi bi-person-fill-nav-menu" aria-hidden="true"></span> @context.User.Identity?.Name
@@ -80,47 +159,38 @@
                 <div class="nav-item px-3">
                     <form action="Account/Logout" method="post">
                         <AntiforgeryToken />
-                        <input type="hidden" name="ReturnUrl" value="@currentUrl" />
+
                         <button type="submit" class="nav-link">
-                            <span class="bi bi-arrow-bar-left-nav-menu" aria-hidden="true"></span> Logout
+                            <svg
+                                class="nav-icon px-3"
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="24"
+                                height="24"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                >
+                                <path d="m16 17 5-5-5-5" />
+                                <path d="M21 12H9" />
+                                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                            </svg> 
+                            Logout
                         </button>
                     </form>
                 </div>
             </Authorized>
-            <NotAuthorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="Account/Register">
-                        <span class="bi bi-person-nav-menu" aria-hidden="true"></span> Register
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="Account/Login">
-                        <span class="bi bi-person-badge-nav-menu" aria-hidden="true"></span> Login
-                    </NavLink>
-                </div>
-            </NotAuthorized>
         </AuthorizeView>
     </nav>
 </div>
 
-@code {
-    private string? currentUrl;
 
-    protected override void OnInitialized()
-    {
-        currentUrl = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
-        NavigationManager.LocationChanged += OnLocationChanged;
-    }
 
-    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
-    {
-        currentUrl = NavigationManager.ToBaseRelativePath(e.Location);
-        StateHasChanged();
-    }
 
-    public void Dispose()
-    {
-        NavigationManager.LocationChanged -= OnLocationChanged;
-    }
-}
+
+
+
+
 

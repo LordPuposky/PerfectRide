@@ -1,3 +1,5 @@
+//Data Definition class for Documents
+//Currently unused
 using System.ComponentModel.DataAnnotations;
 
 namespace PerfectRide.Data;

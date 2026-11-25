@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace PerfectRide.Data;
 
+//Enum definition for available MaintenanceItem
 public enum MaintenanceItem
 {
     OilChange,
@@ -16,6 +17,7 @@ public enum MaintenanceItem
     Other
 }
 
+// Data definition class for MaintenanceSchedule
 public class MaintenanceSchedule
 {
     public int Id { get; set; }
