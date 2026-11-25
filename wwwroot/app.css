@@ -134,6 +134,24 @@ h1:focus {
   border-radius: 4px;
 }
 
+/**************************Card headers*******************************/
+/* Card headers with the project colors, same style as the dashboard cards.
+   Use instead of "bg-primary text-white" (white on #142b3a: about 14:1 contrast). */
+.card-header-brand {
+  background-color: var(--primaryBackground);
+  color: var(--white);
+  font-weight: 700;
+  border-bottom: 5px solid var(--accent);
+}
+
+/* Secondary sections. Use instead of "bg-secondary text-white"
+   (white on #005b5e: 7.9:1 contrast). */
+.card-header-brand-secondary {
+  background-color: var(--secondaryBackground);
+  color: var(--white);
+  font-weight: 700;
+}
+
 /**************************Images*************************************/
 .max200 {
   max-width: 200px;

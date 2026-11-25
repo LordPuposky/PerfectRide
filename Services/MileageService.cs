@@ -3,6 +3,7 @@ using PerfectRide.Data;
 
 namespace PerfectRide.Services;
 
+//Retrieves the most current mileage for a vehicle.
 public class MileageService(ApplicationDbContext context)
 {
     public async Task<List<MileageTracking>> GetMileageForVehicle(int vehicleId, string userId)

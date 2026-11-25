@@ -14,7 +14,11 @@
 
 <div class="recent-services">
     <section class="service-section overdue-section">
+
+        @* Render Overdue Services *@
         <h3>Overdue Services</h3>
+        
+        @* Card Loading state. *@
         @if (_isLoading)
         {
             <p class="service-empty">Loading services...</p>
@@ -25,6 +29,7 @@
         }
         else
         {
+            @* Create a card for each overdue service and display it *@
             foreach (MaintenanceSchedule schedule in OverdueServices)
             {
                 Vehicle? vehicle = UserVehicles.FirstOrDefault(v => v.Id == schedule.VehicleId);
@@ -37,8 +42,11 @@
         }
     </section>
 
+    @* Render upcoming services *@
     <section class="service-section">
         <h3>Upcoming Services</h3>
+
+        @* Loading or no services state *@
         @if (_isLoading)
         {
             <p class="service-empty">Loading services...</p>
@@ -49,6 +57,7 @@
         }
         else
         {
+            @* Create a card for each upcoming maintenance service and display. *@
             foreach (MaintenanceSchedule schedule in UpcomingServices)
             {
                 Vehicle? vehicle = UserVehicles.FirstOrDefault(v => v.Id == schedule.VehicleId);

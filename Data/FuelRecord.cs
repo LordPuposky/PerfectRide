@@ -1,3 +1,5 @@
+// Data type definition for FuelRecord
+
 using System.ComponentModel.DataAnnotations;
 
 namespace PerfectRide.Data;

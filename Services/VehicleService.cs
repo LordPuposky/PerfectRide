@@ -5,6 +5,7 @@ namespace PerfectRide.Services;
 
 public class VehicleService(ApplicationDbContext context)
 {
+    //Retrieve all of a user's vehicles from the database.
     public async Task<List<Vehicle>> GetVehiclesAsync(string userId)
     {
         return await context.Vehicles

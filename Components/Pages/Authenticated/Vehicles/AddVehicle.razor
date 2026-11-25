@@ -78,7 +78,7 @@
         }
         else
         {
-            Nav.NavigateTo("/account/login");
+            Nav.NavigateTo("/account/login", forceLoad: true);
         }
     }
 
@@ -121,7 +121,7 @@
 
             } else
             {
-                Nav.NavigateTo("/account/login"); 
+                Nav.NavigateTo("/account/login", forceLoad: true);
             };
         }
     }

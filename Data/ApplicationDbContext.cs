@@ -33,6 +33,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
         modelBuilder.Entity<MileageTracking>()
             .HasIndex(m => new { m.VehicleId, m.DateRecorded, m.Mileage })
             .IsUnique();
+
         //Precision settings for decimals    
         modelBuilder.Entity<FuelRecord>()
             .Property(f => f.Gallons)
