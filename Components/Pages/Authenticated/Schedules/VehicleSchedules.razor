@@ -1,0 +1,249 @@
+@page "/authenticated/schedules/{VehicleId:int}"
+@rendermode InteractiveServer
+@using System.Globalization
+@using System.Security.Claims
+@using PerfectRide.Data
+@using PerfectRide.Helpers
+@inject MaintenanceScheduleService ScheduleService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+@* Maintenance schedules of one vehicle: how often each service should be done,
+   when it was last done, when it is due next, and its status. *@
+
+<PageTitle>Maintenance Schedules - PerfectRide</PageTitle>
+
+<p><a class="btn btn-outline-dark btn-sm" href="/authenticated/schedules">&larr; Back to all vehicles</a></p>
+
+@if (_isLoading)
+{
+    <p>Loading schedules...</p>
+}
+else if (_vehicle is null)
+{
+    <h1>Vehicle not found</h1>
+    <p>This vehicle does not exist or does not belong to your account.</p>
+}
+else
+{
+    <h1>Maintenance Schedules</h1>
+    <p class="lead">@VehicleName</p>
+    <p>
+        Current mileage:
+        @(_currentMileage is int mileage ? $"{mileage.ToString("N0", UsCulture)} mi" : "no readings yet")
+    </p>
+
+    <p class="d-flex flex-wrap gap-2">
+        <a class="btn btn-primary" href="/authenticated/schedules/add?vehicleId=@VehicleId">Add schedule</a>
+        <a class="btn btn-outline-dark" href="/authenticated/maintenance/@VehicleId">Maintenance history</a>
+    </p>
+
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="alert alert-danger" role="alert">@_errorMessage</div>
+    }
+    @if (!string.IsNullOrEmpty(_statusMessage))
+    {
+        <div class="alert alert-success" role="status">@_statusMessage</div>
+    }
+
+    @if (_schedules.Count == 0)
+    {
+        <p>No schedules for this vehicle yet. Add one to see when each service is due.</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-striped align-middle">
+                <caption>
+                    Maintenance schedules for @VehicleName. A service is due at the date or the mileage,
+                    whichever comes first. "Due soon" means within @ScheduleStatusHelper.DueSoonDays days
+                    or @ScheduleStatusHelper.DueSoonMiles miles.
+                </caption>
+                <thead>
+                    <tr>
+                        <th scope="col">Service</th>
+                        <th scope="col">Interval</th>
+                        <th scope="col">Last service</th>
+                        <th scope="col">Next due</th>
+                        <th scope="col">Status</th>
+                        <th scope="col"><span class="visually-hidden">Actions</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var schedule in _schedules)
+                    {
+                        var serviceName = DisplayNameHelper.ToDisplayName(schedule.MaintenanceItem);
+                        var info = ScheduleStatusHelper.GetDueInfo(schedule, _currentMileage, _today);
+
+                        <tr>
+                            <td>
+                                @serviceName
+                                @if (!string.IsNullOrEmpty(schedule.Description))
+                                {
+                                    <div class="small">@schedule.Description</div>
+                                }
+                            </td>
+                            <td>@IntervalText(schedule)</td>
+                            <td>@LastServiceText(info)</td>
+                            <td>@NextDueText(info)</td>
+                            <td><span class="badge @StatusClass(info.Status)">@StatusText(info.Status)</span></td>
+                            <td class="text-nowrap">
+                                @if (_pendingDeleteId == schedule.Id)
+                                {
+                                    <span class="me-2">Delete this schedule?</span>
+                                    <button class="btn btn-danger btn-sm" @onclick="() => DeleteAsync(schedule.Id)">Yes, delete</button>
+                                    <button class="btn btn-secondary btn-sm" @onclick="CancelDelete">Cancel</button>
+                                }
+                                else
+                                {
+                                    <a class="btn btn-outline-primary btn-sm" href="/authenticated/schedules/edit/@schedule.Id"
+                                       aria-label="Edit the @serviceName schedule">Edit</a>
+                                    <button class="btn btn-outline-danger btn-sm" @onclick="() => _pendingDeleteId = schedule.Id"
+                                            aria-label="Delete the @serviceName schedule">Delete</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <p class="small">Deleting a schedule does not delete any maintenance records.</p>
+    }
+}
+
+@code {
+    [Parameter]
+    public int VehicleId { get; set; }
+
+    // Dates and numbers use US format so the app looks the same for every user.
+    private static readonly CultureInfo UsCulture = CultureInfo.GetCultureInfo("en-US");
+
+    private Vehicle? _vehicle;
+    private List<MaintenanceSchedule> _schedules = new();
+    private int? _currentMileage;
+    private readonly DateOnly _today = DateOnly.FromDateTime(DateTime.Today);
+    private string? _userId;
+    private bool _isLoading = true;
+    private int? _pendingDeleteId;
+    private string? _errorMessage;
+    private string? _statusMessage;
+
+    private string VehicleName =>
+        _vehicle is null ? string.Empty : $"{_vehicle.Year} {_vehicle.Make} {_vehicle.Model}";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _isLoading = true;
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        _userId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (!string.IsNullOrEmpty(_userId))
+        {
+            // Returns null when the vehicle belongs to another user.
+            _vehicle = await ScheduleService.GetVehicleAsync(VehicleId, _userId);
+            if (_vehicle is not null)
+            {
+                await LoadSchedulesAsync();
+            }
+        }
+
+        _isLoading = false;
+    }
+
+    private async Task LoadSchedulesAsync()
+    {
+        _schedules = await ScheduleService.GetSchedulesForVehicleAsync(VehicleId, _userId!);
+        _currentMileage = await ScheduleService.GetCurrentMileageAsync(VehicleId, _userId!);
+    }
+
+    private static string IntervalText(MaintenanceSchedule schedule)
+    {
+        var parts = new List<string>();
+        if (schedule.IntervalMileage is int miles)
+        {
+            parts.Add($"{miles.ToString("N0", UsCulture)} mi");
+        }
+        if (schedule.IntervalMonths is int months)
+        {
+            parts.Add(months == 1 ? "1 month" : $"{months} months");
+        }
+        return "Every " + string.Join(" or ", parts);
+    }
+
+    private static string LastServiceText(ScheduleDueInfo info)
+    {
+        if (info.LastDate is not DateOnly date)
+        {
+            return "—";
+        }
+        var text = date.ToString("MMM d, yyyy", UsCulture);
+        return info.LastMileage is int mileage ? $"{text} at {mileage.ToString("N0", UsCulture)} mi" : text;
+    }
+
+    private static string NextDueText(ScheduleDueInfo info)
+    {
+        var parts = new List<string>();
+        if (info.NextDate is DateOnly date)
+        {
+            parts.Add(date.ToString("MMM d, yyyy", UsCulture));
+        }
+        if (info.NextMileage is int mileage)
+        {
+            parts.Add($"{mileage.ToString("N0", UsCulture)} mi");
+        }
+        return parts.Count == 0 ? "Log a service to calculate" : string.Join(" or ", parts);
+    }
+
+    // The status is always written as text; the color only supports it.
+    private static string StatusText(ScheduleStatus status) => status switch
+    {
+        ScheduleStatus.Overdue => "Overdue",
+        ScheduleStatus.DueSoon => "Due soon",
+        ScheduleStatus.Ok => "OK",
+        _ => "No service yet"
+    };
+
+    private static string StatusClass(ScheduleStatus status) => status switch
+    {
+        ScheduleStatus.Overdue => "text-bg-danger",
+        ScheduleStatus.DueSoon => "text-bg-warning",
+        ScheduleStatus.Ok => "text-bg-success",
+        _ => "text-bg-secondary"
+    };
+
+    private void CancelDelete() => _pendingDeleteId = null;
+
+    private async Task DeleteAsync(int scheduleId)
+    {
+        _errorMessage = null;
+        _statusMessage = null;
+
+        if (_userId is null)
+        {
+            return;
+        }
+
+        try
+        {
+            bool deleted = await ScheduleService.DeleteScheduleAsync(scheduleId, _userId);
+            if (deleted)
+            {
+                await LoadSchedulesAsync();
+                _statusMessage = "The schedule was deleted.";
+            }
+            else
+            {
+                _errorMessage = "The schedule could not be found. It may have been deleted already.";
+            }
+        }
+        catch (Exception)
+        {
+            _errorMessage = "Something went wrong while deleting the schedule. Please try again.";
+        }
+        finally
+        {
+            _pendingDeleteId = null;
+        }
+    }
+}

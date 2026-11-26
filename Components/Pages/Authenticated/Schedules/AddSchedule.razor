@@ -1,0 +1,100 @@
+@page "/authenticated/schedules/add"
+@rendermode InteractiveServer
+@using System.Security.Claims
+@using Microsoft.EntityFrameworkCore
+@using PerfectRide.Data
+@using PerfectRide.Models
+@inject MaintenanceScheduleService ScheduleService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager Navigation
+
+@* Page to create a new maintenance schedule for one vehicle. *@
+
+<PageTitle>Add Schedule - PerfectRide</PageTitle>
+
+@if (_isLoading)
+{
+    <p>Loading...</p>
+}
+else if (_vehicle is null)
+{
+    <h1>Vehicle not found</h1>
+    <p>This vehicle does not exist or does not belong to your account.</p>
+    <p><a class="btn btn-outline-dark" href="/authenticated/schedules">&larr; Back to all vehicles</a></p>
+}
+else
+{
+    <h1>Add Schedule</h1>
+    <p class="lead">@VehicleName</p>
+
+    <ScheduleForm Model="_model" OnValidSubmit="SaveAsync" SubmitText="Save schedule" CancelUrl="@SchedulesUrl"
+                  IsSaving="_isSaving" ErrorMessage="@_errorMessage" />
+}
+
+@code {
+    // The vehicle comes from the URL: /authenticated/schedules/add?vehicleId=3
+    [SupplyParameterFromQuery]
+    public int? VehicleId { get; set; }
+
+    private readonly ScheduleFormModel _model = new();
+    private Vehicle? _vehicle;
+    private string? _userId;
+    private bool _isLoading = true;
+    private bool _isSaving;
+    private string? _errorMessage;
+
+    private string VehicleName =>
+        _vehicle is null ? string.Empty : $"{_vehicle.Year} {_vehicle.Make} {_vehicle.Model}";
+
+    private string SchedulesUrl => $"/authenticated/schedules/{VehicleId}";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        _userId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (VehicleId is int vehicleId && !string.IsNullOrEmpty(_userId))
+        {
+            // Returns null when the vehicle belongs to another user.
+            _vehicle = await ScheduleService.GetVehicleAsync(vehicleId, _userId);
+        }
+
+        _isLoading = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_vehicle is null || _userId is null || _isSaving)
+        {
+            return;
+        }
+
+        _isSaving = true;
+        _errorMessage = null;
+
+        try
+        {
+            var schedule = new MaintenanceSchedule { VehicleId = _vehicle.Id };
+            _model.ApplyTo(schedule);
+            await ScheduleService.AddScheduleAsync(schedule, _userId);
+            Navigation.NavigateTo(SchedulesUrl);
+        }
+        catch (ArgumentException ex)
+        {
+            // Business rule messages from the service are safe to show.
+            _errorMessage = ex.Message;
+        }
+        catch (DbUpdateException)
+        {
+            _errorMessage = "The schedule could not be saved. Please check the values and try again.";
+        }
+        catch (Exception)
+        {
+            _errorMessage = "Something went wrong while saving the schedule. Please try again.";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+}

@@ -1,0 +1,111 @@
+@page "/authenticated/schedules/edit/{Id:int}"
+@rendermode InteractiveServer
+@using System.Security.Claims
+@using Microsoft.EntityFrameworkCore
+@using PerfectRide.Data
+@using PerfectRide.Models
+@inject MaintenanceScheduleService ScheduleService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager Navigation
+
+@* Page to edit an existing maintenance schedule. Reuses the shared ScheduleForm. *@
+
+<PageTitle>Edit Schedule - PerfectRide</PageTitle>
+
+@if (_isLoading)
+{
+    <p>Loading...</p>
+}
+else if (_schedule is null || _model is null)
+{
+    <h1>Schedule not found</h1>
+    <p>This schedule does not exist or does not belong to your account.</p>
+    <p><a class="btn btn-outline-dark" href="/authenticated/schedules">&larr; Back to all vehicles</a></p>
+}
+else
+{
+    <h1>Edit Schedule</h1>
+    <p class="lead">@VehicleName</p>
+
+    <ScheduleForm Model="_model" OnValidSubmit="SaveAsync" SubmitText="Save changes" CancelUrl="@SchedulesUrl"
+                  IsSaving="_isSaving" ErrorMessage="@_errorMessage" />
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private MaintenanceSchedule? _schedule;
+    private ScheduleFormModel? _model;
+    private string? _userId;
+    private bool _isLoading = true;
+    private bool _isSaving;
+    private string? _errorMessage;
+
+    private string VehicleName => _schedule?.Vehicle is null
+        ? string.Empty
+        : $"{_schedule.Vehicle.Year} {_schedule.Vehicle.Make} {_schedule.Vehicle.Model}";
+
+    private string SchedulesUrl => $"/authenticated/schedules/{_schedule?.VehicleId}";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        _userId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (!string.IsNullOrEmpty(_userId))
+        {
+            // Returns null when the schedule belongs to another user.
+            _schedule = await ScheduleService.GetScheduleAsync(Id, _userId);
+            if (_schedule is not null)
+            {
+                _model = ScheduleFormModel.FromSchedule(_schedule);
+            }
+        }
+
+        _isLoading = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_schedule is null || _model is null || _userId is null || _isSaving)
+        {
+            return;
+        }
+
+        _isSaving = true;
+        _errorMessage = null;
+
+        try
+        {
+            var updated = new MaintenanceSchedule { Id = _schedule.Id, VehicleId = _schedule.VehicleId };
+            _model.ApplyTo(updated);
+
+            bool saved = await ScheduleService.UpdateScheduleAsync(updated, _userId);
+            if (saved)
+            {
+                Navigation.NavigateTo(SchedulesUrl);
+            }
+            else
+            {
+                _errorMessage = "The schedule could not be found. It may have been deleted.";
+            }
+        }
+        catch (ArgumentException ex)
+        {
+            _errorMessage = ex.Message;
+        }
+        catch (DbUpdateException)
+        {
+            _errorMessage = "The changes could not be saved. Please check the values and try again.";
+        }
+        catch (Exception)
+        {
+            _errorMessage = "Something went wrong while saving the changes. Please try again.";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+}
