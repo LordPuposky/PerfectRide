@@ -65,9 +65,6 @@ builder.Services.AddScoped<MaintenanceScheduleService>();
 
 var app = builder.Build();
 
-//Temporary Vehicle Db Seed data
-await DevelopmentDataSeeder.SeedAsync(app.Services);
-
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {

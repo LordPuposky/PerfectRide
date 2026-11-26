@@ -159,6 +159,7 @@
                 <div class="nav-item px-3">
                     <form action="Account/Logout" method="post">
                         <AntiforgeryToken />
+                        <input type="hidden" name="returnUrl" value="" />
 
                         <button type="submit" class="nav-link">
                             <svg
