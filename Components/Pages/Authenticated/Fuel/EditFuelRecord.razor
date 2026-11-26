@@ -76,11 +76,12 @@
     private int? currentMileage = null;
     private bool mileageError = false;
     private string? errorMessage;
+    private string? userId;
 
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        var userId = authState.User
+        userId = authState.User
             .FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
         if (userId == null)
@@ -109,6 +110,18 @@
         if (mileageError) return;
 
         if (fuelRecord == null) return;
+
+        if (fuelRecord.Vehicle?.UserId != userId)
+        {
+            errorMessage = "You do not have permission to edit this record.";
+            return;
+        }
+
+        if (fuelRecord.DateFilled > DateOnly.FromDateTime(DateTime.Today))
+        {
+            errorMessage = "The date cannot be in the future.";
+            return;
+        }
 
         var vehicleId = fuelRecord.VehicleId;
         var oldMileageTracking = fuelRecord.MileageTracking;
