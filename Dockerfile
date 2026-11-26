@@ -17,6 +17,8 @@ RUN dotnet publish "PerfectRide.csproj" -c Release -o /app/publish /p:UseAppHost
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
 
+RUN mkdir -p /app/Data
+
 COPY --from=build /app/publish .
 
 # Render uses port 10000 by default.
