@@ -7,6 +7,7 @@
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthStateProvider
 @inject MileageTrackingService MileageTrackingService
+
 @rendermode InteractiveServer
 
 <PageTitle>Add Fuel Record</PageTitle>
@@ -34,7 +35,7 @@
 
             <div class="mb-3">
                 <label class="form-label">Mileage <span class="text-danger">*</span></label>
-                <InputNumber class="form-control" @bind-Value="currentMileage" placeholder="e.g. 45000" />
+                <InputNumber class="form-control" @bind-Value="currentMileage" placeholder="e.g. 45000" required />
                 @if (mileageError)
                 {
                     <span class="text-danger">Please enter a valid mileage of 0 or greater.</span>
@@ -107,8 +108,18 @@
 
     private async Task HandleSubmit()
     {
-        mileageError = currentMileage == null || currentMileage < 0 || currentMileage > 999999;
-        if (mileageError) return;
+        if (vehicle == null)
+        {
+            errorMessage = "Vehicle could not be found.";
+            return;
+        }
+
+        if (currentMileage is not int mileage)
+        {
+            mileageError = true;
+            errorMessage = "Please enter a valid integer in the mileage field.";
+            return;
+        }
 
         if (fuelRecord.DateFilled > DateOnly.FromDateTime(DateTime.Today))
         {
@@ -126,37 +137,50 @@
             return;
         }
 
-        fuelRecord.VehicleId = VehicleId;
-        fuelRecord.TotalCost = Math.Round(fuelRecord.Gallons * fuelRecord.PricePerGallon, 2);
-
-        await using var transaction = await Db.Database.BeginTransactionAsync();
-
         try
         {
-            var mileageTracking = await MileageTrackingService.AssignMileageTrackingRecord(
-                VehicleId,
+            await MileageTrackingService.ValidateMileageAsync(
+                vehicle.Id,
                 fuelRecord.DateFilled,
-                currentMileage!.Value,
-                MileageSource.FuelRecord
+                mileage,
+                null
             );
+            fuelRecord.VehicleId = VehicleId;
+            fuelRecord.TotalCost = Math.Round(fuelRecord.Gallons * fuelRecord.PricePerGallon, 2);
 
-            if (Db.Entry(mileageTracking).State == Microsoft.EntityFrameworkCore.EntityState.Detached)
+
+            await using var transaction = await Db.Database.BeginTransactionAsync();
+
+            try
             {
-                Db.MileageTrackings.Add(mileageTracking);
+                var mileageTracking = await MileageTrackingService.AssignMileageTrackingRecord(
+                    VehicleId,
+                    fuelRecord.DateFilled,
+                    currentMileage!.Value,
+                    MileageSource.FuelRecord
+                );
+
+                if (Db.Entry(mileageTracking).State == Microsoft.EntityFrameworkCore.EntityState.Detached)
+                {
+                    Db.MileageTrackings.Add(mileageTracking);
+                }
+
+                fuelRecord.MileageTracking = mileageTracking;
+                Db.FuelRecords.Add(fuelRecord);
+
+                await Db.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                Nav.NavigateTo($"/authenticated/vehicles/{VehicleId}");
             }
-
-            fuelRecord.MileageTracking = mileageTracking;
-            Db.FuelRecords.Add(fuelRecord);
-
-            await Db.SaveChangesAsync();
-            await transaction.CommitAsync();
-
-            Nav.NavigateTo($"/authenticated/vehicles/{VehicleId}");
-        }
-        catch
+            catch
+            {
+                await transaction.RollbackAsync();
+                errorMessage = "Something went wrong while saving the fuel record. Please try again.";
+            }
+        } catch (ArgumentException ex)
         {
-            await transaction.RollbackAsync();
-            errorMessage = "Something went wrong while saving the fuel record. Please try again.";
+            errorMessage = ex.Message;
         }
     }
 }

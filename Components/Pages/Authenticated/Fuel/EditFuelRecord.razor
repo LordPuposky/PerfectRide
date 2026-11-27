@@ -78,9 +78,9 @@
     private bool mileageError = false;
     private string? errorMessage;
     private string? userId;
-
     protected override async Task OnInitializedAsync()
     {
+
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         userId = authState.User
             .FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
@@ -101,16 +101,17 @@
             Nav.NavigateTo("/authenticated/vehicles");
             return;
         }
-
         currentMileage = fuelRecord.MileageTracking?.Mileage;
     }
 
     private async Task HandleSubmit()
     {
-        mileageError = currentMileage == null || currentMileage < 0 || currentMileage > 999999;
+        errorMessage = null;
+
         if (mileageError) return;
 
         if (fuelRecord == null) return;
+
 
         if (fuelRecord.Vehicle?.UserId != userId)
         {
@@ -125,7 +126,9 @@
         }
 
         var vehicleId = fuelRecord.VehicleId;
+
         var oldMileageTracking = fuelRecord.MileageTracking;
+
 
         var newFuelRecord = new FuelRecord
         {
@@ -163,18 +166,32 @@
                 MileageSource.FuelRecord
             );
 
-            if (Db.Entry(mileageTracking).State == Microsoft.EntityFrameworkCore.EntityState.Detached)
+            try
             {
-                Db.MileageTrackings.Add(mileageTracking);
+                await MileageTrackingService.ValidateMileageAsync(
+                    vehicleId,
+                    fuelRecord.DateFilled,
+                    currentMileage!.Value,
+                    mileageTracking.Id
+                );
+
+                if (Db.Entry(mileageTracking).State == Microsoft.EntityFrameworkCore.EntityState.Detached)
+                {
+                    Db.MileageTrackings.Add(mileageTracking);
+                }
+
+                newFuelRecord.MileageTracking = mileageTracking;
+                Db.FuelRecords.Add(newFuelRecord);
+
+                await Db.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                Nav.NavigateTo($"/authenticated/vehicles/{vehicleId}");
             }
-
-            newFuelRecord.MileageTracking = mileageTracking;
-            Db.FuelRecords.Add(newFuelRecord);
-
-            await Db.SaveChangesAsync();
-            await transaction.CommitAsync();
-
-            Nav.NavigateTo($"/authenticated/vehicles/{vehicleId}");
+            catch (ArgumentException ex)
+            {
+                errorMessage = ex.Message;
+            }
         }
         catch
         {

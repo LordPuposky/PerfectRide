@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using PerfectRide.Data;
+using System.Globalization;
 
 namespace PerfectRide.Services;
 
@@ -67,4 +68,72 @@ public class MileageTrackingService(ApplicationDbContext context)
             })
             .ToDictionaryAsync(x => x.VehicleId, x => x.Mileage);
     }
+
+
+    public async Task ValidateMileageAsync(
+        int vehicleId,
+        DateOnly datePerformed,
+        int mileage,
+        int? excludedReadingId)
+    {
+        string high = "";
+        string low = "";
+        if (mileage < 0 || mileage > 999999)
+        {
+            throw new ArgumentException(
+                "Mileage must be between 0 and 999,999.");
+        }
+
+        var otherReadings = context.MileageTrackings
+            .Where(m => m.VehicleId == vehicleId);
+
+        if (excludedReadingId is int readingId)
+        {
+            otherReadings = otherReadings
+                .Where(m => m.Id != readingId);
+        }
+
+        var usCulture = CultureInfo.GetCultureInfo("en-US");
+        var date = datePerformed.ToString("MMM d, yyyy", usCulture);
+
+        int? highestBefore = await otherReadings
+            .Where(m => m.DateRecorded < datePerformed)
+            .MaxAsync(m => (int?)m.Mileage);
+
+        int? lowestAfter = await otherReadings
+            .Where(m => m.DateRecorded > datePerformed)
+            .MinAsync(m => (int?)m.Mileage);
+
+        if (highestBefore is int)
+        {
+            low = highestBefore.Value.ToString("N0", usCulture);
+        }
+        else
+        {
+            low = "0";
+        }
+
+        if (lowestAfter is int)
+        {
+            high = lowestAfter.Value.ToString("N0", usCulture);
+        }
+        else
+        {
+            high = "999,999";
+        }
+
+        if (highestBefore is int before && mileage < before)
+        {
+            throw new ArgumentException(
+                $"The mileage must be between {low} and {high} mi for the date {date}.");
+        }
+
+        if (lowestAfter is int after && mileage > after)
+        {
+            throw new ArgumentException(
+                $"The mileage must be between {low} and {high} mi for the date {date}.");
+        }
+    }
+
+
 }

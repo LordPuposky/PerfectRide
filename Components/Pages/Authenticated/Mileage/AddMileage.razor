@@ -4,6 +4,8 @@
 @inject ApplicationDbContext Db
 @inject NavigationManager Nav
 @inject AuthenticationStateProvider AuthStateProvider
+@inject MileageTrackingService MileageTrackingService
+
 @rendermode InteractiveServer
 
 <PageTitle>Log Odometer Reading - PerfectRide</PageTitle>
@@ -103,9 +105,17 @@
         latestMileage = latest?.Mileage;
     }
 
+  
     private async Task HandleSubmit()
     {
         mileageError = null;
+        errorMessage = null;
+
+        if (vehicle == null)
+        {
+            errorMessage = "The vehicle could not be found.";
+            return;
+        }
 
         if (model.Date > DateOnly.FromDateTime(DateTime.Today))
         {
@@ -113,35 +123,41 @@
             return;
         }
 
-        if (model.Mileage == null || model.Mileage < 0 || model.Mileage > 999999)
+        if (model.Mileage == null)
         {
-            mileageError = "Please enter a valid odometer reading between 0 and 999999.";
-            return;
-        }
-
-        if (latestMileage != null && model.Mileage < latestMileage)
-        {
-            mileageError = $"The odometer reading cannot be lower than the last recorded reading of {latestMileage.Value.ToString("N0")} miles.";
+            mileageError = "Please enter an odometer reading.";
             return;
         }
 
         try
         {
+            await MileageTrackingService.ValidateMileageAsync(
+                vehicle.Id,
+                model.Date,
+                model.Mileage.Value,
+                null);
+
             var entry = new MileageTracking
             {
-                VehicleId = VehicleId,
+                VehicleId = vehicle.Id,
                 DateRecorded = model.Date,
-                Mileage = model.Mileage!.Value,
+                Mileage = model.Mileage.Value,
                 Source = MileageSource.Manual
             };
 
             Db.MileageTrackings.Add(entry);
             await Db.SaveChangesAsync();
+
             Nav.NavigateTo("/authenticated/mileage");
+        }
+        catch (ArgumentException ex)
+        {
+            mileageError = ex.Message;
         }
         catch
         {
             errorMessage = "Something went wrong while saving the reading. Please try again.";
         }
     }
+
 }
