@@ -41,6 +41,21 @@ public class MaintenanceScheduleService(ApplicationDbContext context)
     }
 
     /// <summary>
+    /// Returns the vehicle's "Other" schedules, ordered by description.
+    /// The maintenance form shows them so the user can link an "Other" service to one.
+    /// </summary>
+    public async Task<List<MaintenanceSchedule>> GetOtherSchedulesForVehicleAsync(int vehicleId, string userId)
+    {
+        return await context.MaintenanceSchedules
+            .AsNoTracking()
+            .Where(s => s.VehicleId == vehicleId
+                && s.Vehicle!.UserId == userId
+                && s.MaintenanceItem == MaintenanceItem.Other)
+            .OrderBy(s => s.Description)
+            .ToListAsync();
+    }
+
+    /// <summary>
     /// Returns one schedule, or null if it does not exist or belongs to another user.
     /// </summary>
     public async Task<MaintenanceSchedule?> GetScheduleAsync(int scheduleId, string userId)
