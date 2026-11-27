@@ -6,6 +6,7 @@
 @using PerfectRide.Data
 @using PerfectRide.Models
 @inject MaintenanceService MaintenanceService
+@inject MaintenanceScheduleService ScheduleService
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager Navigation
 
@@ -33,7 +34,7 @@ else
     }
 
     <MaintenanceForm Model="_model" OnValidSubmit="SaveAsync" SubmitText="Save service" CancelUrl="@HistoryUrl"
-                     IsSaving="_isSaving" ErrorMessage="@_errorMessage" />
+                     IsSaving="_isSaving" ErrorMessage="@_errorMessage" OtherSchedules="_otherSchedules" />
 }
 
 @code {
@@ -45,6 +46,7 @@ else
 
     private readonly MaintenanceFormModel _model = new();
     private Vehicle? _vehicle;
+    private List<MaintenanceSchedule> _otherSchedules = new();
     private int? _latestMileage;
     private string? _userId;
     private bool _isLoading = true;
@@ -70,6 +72,7 @@ else
                 _latestMileage = await MaintenanceService.GetLatestMileageAsync(vehicleId, _userId);
                 _model.Mileage = _latestMileage;
                 _model.DatePerformed = DateOnly.FromDateTime(DateTime.Today);
+                _otherSchedules = await ScheduleService.GetOtherSchedulesForVehicleAsync(vehicleId, _userId);
             }
         }
 

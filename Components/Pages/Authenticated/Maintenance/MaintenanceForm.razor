@@ -33,6 +33,23 @@
             <ValidationMessage For="() => Model.DatePerformed" class="text-danger" />
         </div>
 
+        @* "Other" services are not linked to a schedule automatically, so the user can choose one. *@
+        @if (Model.MaintenanceItem == MaintenanceItem.Other && OtherSchedules.Count > 0)
+        {
+            <div class="col-12">
+                <label for="other-schedule" class="form-label">Schedule</label>
+                <InputSelect id="other-schedule" class="form-select" @bind-Value="Model.MaintenanceScheduleId"
+                             aria-describedby="other-schedule-help">
+                    <option value="">None</option>
+                    @foreach (var schedule in OtherSchedules)
+                    {
+                        <option value="@schedule.Id">@(schedule.Description ?? $"Other schedule {schedule.Id}")</option>
+                    }
+                </InputSelect>
+                <div id="other-schedule-help" class="form-text">Optional. Choose the "Other" schedule this service belongs to.</div>
+            </div>
+        }
+
         <div class="col-md-6">
             <label for="mileage" class="form-label">Mileage (required)</label>
             <InputNumber id="mileage" class="form-control" @bind-Value="Model.Mileage" min="0" max="999999" />
@@ -86,6 +103,12 @@
 
     [Parameter]
     public string? ErrorMessage { get; set; }
+
+    /// <summary>
+    /// The vehicle's "Other" schedules, shown in the Schedule list when the service is Other.
+    /// </summary>
+    [Parameter]
+    public List<MaintenanceSchedule> OtherSchedules { get; set; } = new();
 
     private EditContext? _editContext;
     private ValidationMessageStore? _ruleMessages;
