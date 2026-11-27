@@ -1,0 +1,45 @@
+@page "/authenticated/diagnostics"
+@using PerfectRide.Components.Shared.DashboardCards
+@using Microsoft.EntityFrameworkCore;
+@using PerfectRide.Data;
+@inject AuthenticationStateProvider AuthStateProvider
+
+
+@* Page Header and title *@
+<div class="dashboard-page">
+    <header class="dashboard-header">
+        <div>
+            <p class="dashboard-eyebrow">PerfectRide</p>
+            <h1>Diagnostics</h1>
+        </div>
+    </header>
+
+@* Render vehicle and maintenance cards *@
+    <div class="dashboard-grid">
+        <section class="dashboard-section dashboard-section-vehicles">
+            <p>Current User: @_userId</p>
+            @foreach(Vehicle v in _vehicles)
+            {
+                <p>User: v.UserId Vehicle: @v.Id</p>
+            }
+       
+        </section>
+    </div>
+</div>
+
+@code{
+
+    private string? _userId;
+    private List<Vehicle> _vehicles = new(); 
+
+    @*Retrieve messages from Maintenance card component and display on the Maintenance Banner*@
+    protected override async Task OnInitializedAsync(ApplicationDbContext context)
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var _userId = authState.User
+            .FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+var _vehicles = await context.Vehicles.ToListAsync();
+
+    }
+        
+}
