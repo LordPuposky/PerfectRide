@@ -30,6 +30,12 @@ public class MaintenanceFormModel
     public string? Description { get; set; }
 
     /// <summary>
+    /// The "Other" schedule chosen in the form (optional). It is only used when the service is Other;
+    /// the other service types are linked to their schedule automatically by MaintenanceService.
+    /// </summary>
+    public int? MaintenanceScheduleId { get; set; }
+
+    /// <summary>
     /// Rules that involve more than one field.
     /// </summary>
     /// <summary>
@@ -59,7 +65,8 @@ public class MaintenanceFormModel
         Mileage = record.MileageTracking?.Mileage,
         Cost = record.Cost,
         ServiceProvider = record.ServiceProvider,
-        Description = record.Description
+        Description = record.Description,
+        MaintenanceScheduleId = record.MaintenanceItem == Data.MaintenanceItem.Other ? record.MaintenanceScheduleId : null
     };
 
     /// <summary>
@@ -72,5 +79,7 @@ public class MaintenanceFormModel
         record.Cost = Cost;
         record.ServiceProvider = string.IsNullOrWhiteSpace(ServiceProvider) ? null : ServiceProvider.Trim();
         record.Description = string.IsNullOrWhiteSpace(Description) ? null : Description.Trim();
+        // Only "Other" keeps the schedule chosen in the form.
+        record.MaintenanceScheduleId = MaintenanceItem == Data.MaintenanceItem.Other ? MaintenanceScheduleId : null;
     }
 }

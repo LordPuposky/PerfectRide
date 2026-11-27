@@ -76,7 +76,11 @@ public class MaintenanceService(ApplicationDbContext context, MileageTrackingSer
         {
             record.MileageTracking = await GetOrCreateReadingAsync(record.VehicleId, record.DatePerformed, mileage);
             // Link the record to the vehicle's schedule for this service, if there is one.
-            record.MaintenanceScheduleId = await FindScheduleIdAsync(record.VehicleId, record.MaintenanceItem);
+            // "Other" keeps the schedule the user chose in the form (it can be none).
+            if (record.MaintenanceItem != MaintenanceItem.Other)
+            {
+                record.MaintenanceScheduleId = await FindScheduleIdAsync(record.VehicleId, record.MaintenanceItem);
+            }
             context.MaintenanceRecords.Add(record);
 
             await context.SaveChangesAsync();
@@ -111,11 +115,15 @@ public class MaintenanceService(ApplicationDbContext context, MileageTrackingSer
 
         // The vehicle of a record cannot be changed.
         updated.VehicleId = existing.VehicleId;
-        // The form doesn't edit the schedule link. Keep it if the service type is the same.
+        // "Other" keeps the schedule the user chose in the form (it can be none).
+        // For the other service types, keep the link if the type is the same.
         // Otherwise (or if the record had no link), use the vehicle's schedule for this service type.
-        updated.MaintenanceScheduleId = updated.MaintenanceItem == existing.MaintenanceItem && existing.MaintenanceScheduleId is not null
-            ? existing.MaintenanceScheduleId
-            : await FindScheduleIdAsync(existing.VehicleId, updated.MaintenanceItem);
+        if (updated.MaintenanceItem != MaintenanceItem.Other)
+        {
+            updated.MaintenanceScheduleId = updated.MaintenanceItem == existing.MaintenanceItem && existing.MaintenanceScheduleId is not null
+                ? existing.MaintenanceScheduleId
+                : await FindScheduleIdAsync(existing.VehicleId, updated.MaintenanceItem);
+        }
 
         var oldReading = existing.MileageTracking!;
         bool readingChanged = oldReading.Mileage != mileage || oldReading.DateRecorded != updated.DatePerformed;
@@ -193,7 +201,7 @@ public class MaintenanceService(ApplicationDbContext context, MileageTrackingSer
 
     /// <summary>
     /// Returns the id of the vehicle's schedule for this service type, or null if there is none.
-    /// "Other" is never linked automatically, because its notes tell the services apart.
+    /// "Other" is not linked automatically; the user chooses its schedule in the form.
     /// </summary>
     private async Task<int?> FindScheduleIdAsync(int vehicleId, MaintenanceItem item)
     {
