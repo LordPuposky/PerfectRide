@@ -1,0 +1,72 @@
+@page "/authenticated/schedules"
+@using System.Security.Claims
+@using PerfectRide.Data
+@inject VehicleService VehicleService
+@inject MaintenanceScheduleService ScheduleService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+@* Entry point for maintenance schedules: lists the user's vehicles
+   so they can open and manage the schedules of each one. *@
+
+<PageTitle>Maintenance Schedules - PerfectRide</PageTitle>
+
+<h1>Maintenance Schedules</h1>
+<p>Choose a vehicle to see when its services are due, or to set how often each service should be done.</p>
+
+@if (_isLoading)
+{
+    <p>Loading vehicles...</p>
+}
+else if (_vehicles.Count == 0)
+{
+    <p>You don't have any vehicles yet. Add a vehicle first to create maintenance schedules.</p>
+}
+else
+{
+    <ul class="list-unstyled">
+        @foreach (var vehicle in _vehicles)
+        {
+            var vehicleName = $"{vehicle.Year} {vehicle.Make} {vehicle.Model}";
+            int count = _scheduleCounts.GetValueOrDefault(vehicle.Id);
+
+            <li class="card mb-3">
+                <div class="card-body">
+                    <h2 class="h5 card-title">@vehicleName</h2>
+                    <p class="mb-2">@ScheduleCountText(count)</p>
+                    <a class="btn btn-primary" href="/authenticated/schedules/@vehicle.Id"
+                       aria-label="View maintenance schedules for @vehicleName">
+                        View schedules
+                    </a>
+                </div>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private List<Vehicle> _vehicles = new();
+    private Dictionary<int, int> _scheduleCounts = new();
+    private bool _isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var userId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        // Both services only return data that belongs to this user.
+        if (!string.IsNullOrEmpty(userId))
+        {
+            _vehicles = await VehicleService.GetVehiclesAsync(userId);
+            _scheduleCounts = await ScheduleService.GetScheduleCountsAsync(userId);
+        }
+
+        _isLoading = false;
+    }
+
+    private static string ScheduleCountText(int count) => count switch
+    {
+        0 => "No schedules yet",
+        1 => "1 schedule",
+        _ => $"{count} schedules"
+    };
+}
