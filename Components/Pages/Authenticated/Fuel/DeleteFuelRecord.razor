@@ -24,7 +24,7 @@
         </div>
 
         <div class="card mb-4">
-            <div class="card-header bg-primary text-white">
+            <div class="card-header card-header-brand">
                 <h5 class="mb-0">@fuelRecord.Vehicle?.Year @fuelRecord.Vehicle?.Make @fuelRecord.Vehicle?.Model</h5>
             </div>
             <div class="card-body">
@@ -55,11 +55,12 @@
 
     private FuelRecord? fuelRecord;
     private string? errorMessage;
+    private string? userId;
 
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        var userId = authState.User
+        userId = authState.User
             .FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
         if (userId == null)
@@ -83,13 +84,19 @@
     {
         if (fuelRecord == null) return;
 
+        if (fuelRecord.Vehicle?.UserId != userId)
+        {
+            errorMessage = "You do not have permission to delete this record.";
+            return;
+        }
+
         var vehicleId = fuelRecord.VehicleId;
         var mileageTracking = fuelRecord.MileageTracking;
 
+        await using var transaction = await Db.Database.BeginTransactionAsync();
+
         try
         {
-            await using var transaction = await Db.Database.BeginTransactionAsync();
-
             Db.FuelRecords.Remove(fuelRecord);
             await Db.SaveChangesAsync();
 
@@ -110,6 +117,7 @@
         }
         catch
         {
+            await transaction.RollbackAsync();
             errorMessage = "Something went wrong while deleting the record. Please try again.";
         }
     }

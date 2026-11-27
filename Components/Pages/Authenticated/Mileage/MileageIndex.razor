@@ -1,0 +1,94 @@
+@page "/authenticated/mileage"
+@using Microsoft.EntityFrameworkCore
+@using PerfectRide.Data
+@inject ApplicationDbContext Db
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthStateProvider
+@rendermode InteractiveServer
+
+<PageTitle>Mileage Tracking - PerfectRide</PageTitle>
+
+<div class="container mt-4">
+    <h1>Mileage Tracking</h1>
+    <p>Choose a vehicle to view or log odometer readings.</p>
+
+    @if (isLoading)
+    {
+        <p>Loading vehicles...</p>
+    }
+    else if (vehicles.Count == 0)
+    {
+        <p>You do not have any vehicles yet. <a href="/authenticated/vehicles/add">Add a vehicle</a> to start tracking mileage.</p>
+    }
+    else
+    {
+        <ul class="list-unstyled">
+            @foreach (var vehicle in vehicles)
+            {
+                var vehicleName = $"{vehicle.Year} {vehicle.Make} {vehicle.Model}";
+                var latestMileage = mileageData.TryGetValue(vehicle.Id, out int mileage) ? mileage : 0;
+
+                <li class="card mb-3">
+                    <div class="card-body">
+                        <h2 class="h5 card-title">@vehicleName</h2>
+                        <p class="mb-2">
+                            <strong>Current Mileage:</strong> @latestMileage.ToString("N0") miles
+                        </p>
+                        <a class="btn btn-primary me-2" href="/authenticated/mileage/add?vehicleId=@vehicle.Id">
+                            Log Odometer Reading
+                        </a>
+                        <a class="btn btn-outline-primary" href="/authenticated/mileage/history?vehicleId=@vehicle.Id">
+                            View History
+                        </a>
+                    </div>
+                </li>
+            }
+        </ul>
+    }
+</div>
+
+@code {
+    private List<Vehicle> vehicles = new();
+    private Dictionary<int, int> mileageData = new();
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var userId = authState.User
+            .FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        if (userId == null)
+        {
+            Nav.NavigateTo("/account/login");
+            return;
+        }
+
+        try
+        {
+            vehicles = await Db.Vehicles
+                .Where(v => v.UserId == userId)
+                .OrderBy(v => v.Year)
+                .ThenBy(v => v.Make)
+                .ToListAsync();
+
+            foreach (var vehicle in vehicles)
+            {
+                var latest = await Db.MileageTrackings
+                    .Where(m => m.VehicleId == vehicle.Id)
+                    .OrderByDescending(m => m.DateRecorded)
+                    .FirstOrDefaultAsync();
+
+                mileageData[vehicle.Id] = latest?.Mileage ?? 0;
+            }
+        }
+        catch
+        {
+            vehicles = new();
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

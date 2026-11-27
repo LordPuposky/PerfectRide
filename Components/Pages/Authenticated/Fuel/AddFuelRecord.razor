@@ -110,6 +110,12 @@
         mileageError = currentMileage == null || currentMileage < 0 || currentMileage > 999999;
         if (mileageError) return;
 
+        if (fuelRecord.DateFilled > DateOnly.FromDateTime(DateTime.Today))
+        {
+            errorMessage = "The date cannot be in the future.";
+            return;
+        }
+
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         var userId = authState.User
             .FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
