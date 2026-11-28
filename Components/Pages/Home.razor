@@ -1,6 +1,7 @@
 ﻿@page "/"
 @using PerfectRide.Services
 
+@inject AuthenticationStateProvider AuthenticationStateProvider
 @inject AnnouncementState AnnouncementState
 @rendermode InteractiveServer
 
@@ -8,7 +9,7 @@
 @inject NavigationManager NavigationManager
 
 <PageTitle>Home</PageTitle>
-
+@* Introduce the application. Offer the user the option to login or register. *@
 <h1 class="text-center">Welcome to PerfectRide</h1>
 <p class="text-center">Your one stop shop for automotive tracking!</p>
 <div class="d-flex flex-row justify-content-between align-items-center m-auto">
@@ -27,17 +28,19 @@
 </div>
 
 @code{
-    //Redirect to registration
+    @* Redirect to registration *@
     private void RegistrationRedirect()
     {
-        NavigationManager.NavigateTo("/Account/Register"); 
+        NavigationManager.NavigateTo("/Account/Register", forceLoad: true);
     }
 
+@* Redirect to Login *@
     private void LoginRedirect()
     {
-        NavigationManager.NavigateTo("/Account/Login"); 
+        NavigationManager.NavigateTo("/Account/Login", forceLoad: true);
     }
 
+@* Set a welcome announcement for the announcement banner *@
     protected override void OnInitialized()
 {
     AnnouncementState.SetAnnouncement(
@@ -45,5 +48,18 @@
         true,
         "info"
     );
+}
+@* Redirect user to Dashboard if logged in. *@
+protected override async Task OnAfterRenderAsync(bool firstRender)
+{
+    if (firstRender)
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+
+        if (authState.User.Identity?.IsAuthenticated == true)
+        {
+            NavigationManager.NavigateTo("/authenticated/dashboard");
+        }
+    }
 }
 }

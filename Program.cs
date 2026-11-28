@@ -1,12 +1,26 @@
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 using PerfectRide.Components;
 using PerfectRide.Components.Account;
 using PerfectRide.Data;
 using PerfectRide.Services;
 
+var usCulture = CultureInfo.GetCultureInfo("en-US");
+CultureInfo.DefaultThreadCurrentCulture = usCulture;
+CultureInfo.DefaultThreadCurrentUICulture = usCulture;
+
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.Configure<RequestLocalizationOptions>(options =>
+{
+    options.DefaultRequestCulture = new RequestCulture(usCulture);
+    options.SupportedCultures = [usCulture];
+    options.SupportedUICultures = [usCulture];
+    options.ApplyCurrentCultureToResponseHeaders = true;
+});
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
@@ -42,8 +56,11 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
 builder.Services.AddScoped<AnnouncementState>();
 builder.Services.AddScoped<VehicleService>();
-builder.Services.AddScoped<MaintenanceService>();
 builder.Services.AddScoped<MileageTrackingService>();
+builder.Services.AddScoped<MaintenanceScheduleService>();
+builder.Services.AddScoped<MaintenanceService>();
+builder.Services.AddScoped<MileageService>();
+builder.Services.AddScoped<FuelService>();
 builder.Services.AddScoped<MaintenanceScheduleService>();
 
 var app = builder.Build();
@@ -64,7 +81,10 @@ else
 }
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
+app.UseRequestLocalization();
 
+app.UseAuthentication();
+app.UseAuthorization();
 app.UseAntiforgery();
 
 app.MapStaticAssets();

@@ -1,0 +1,89 @@
+@using System.Security.Claims
+@using PerfectRide.Data
+@using PerfectRide.Services
+@using PerfectRide.Helpers
+
+@inject MileageTrackingService MileageTrackingService
+@inject VehicleService VehicleService
+@inject MaintenanceService MaintenanceService
+@inject MileageService MileageService
+@inject FuelService FuelService
+
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+
+<div class="recent-services">
+    <section class="service-section overdue-section">
+
+        @* Render Overdue Services *@
+        <h3>Overdue Services</h3>
+        
+        @* Card Loading state. *@
+        @if (_isLoading)
+        {
+            <p class="service-empty">Loading services...</p>
+        }
+        else if (OverdueServices.Count == 0)
+        {
+            <p class="service-empty">No overdue services.</p>
+        }
+        else
+        {
+            @* Create a card for each overdue service and display it *@
+            foreach (MaintenanceSchedule schedule in OverdueServices)
+            {
+                Vehicle? vehicle = UserVehicles.FirstOrDefault(v => v.Id == schedule.VehicleId);
+                <div class="service-alert service-alert-overdue">
+                    <span class="service-status">Overdue</span>
+                    <strong>@(vehicle is null ? "Unknown vehicle" : $"{vehicle.Year} {vehicle.Make} {vehicle.Model}")</strong>
+                    <span>@DisplayNameHelper.ToDisplayName(schedule.MaintenanceItem)</span>
+                </div>
+            }
+        }
+    </section>
+
+    @* Render upcoming services *@
+    <section class="service-section">
+        <h3>Upcoming Services</h3>
+
+        @* Loading or no services state *@
+        @if (_isLoading)
+        {
+            <p class="service-empty">Loading services...</p>
+        }
+        else if (UpcomingServices.Count == 0)
+        {
+            <p class="service-empty">No upcoming services.</p>
+        }
+        else
+        {
+            @* Create a card for each upcoming maintenance service and display. *@
+            foreach (MaintenanceSchedule schedule in UpcomingServices)
+            {
+                Vehicle? vehicle = UserVehicles.FirstOrDefault(v => v.Id == schedule.VehicleId);
+                <div class="service-alert">
+                    <span class="service-status">Upcoming</span>
+                    <strong>@(vehicle is null ? "Unknown vehicle" : $"{vehicle.Year} {vehicle.Make} {vehicle.Model}")</strong>
+                    <span>@DisplayNameHelper.ToDisplayName(schedule.MaintenanceItem)</span>
+                </div>
+            }
+        }
+    </section>
+</div>
+        
+
+@code{
+    [Parameter]
+    public List<MaintenanceSchedule> UpcomingServices { get; set; } = new();
+    [Parameter]
+    public List<Vehicle> UserVehicles { get; set; } = new();
+    [Parameter]
+    public List<MaintenanceSchedule> OverdueServices { get; set; } = new(0);
+    private bool _isLoading = false;
+    protected override void OnInitialized()
+    {
+
+        _isLoading = false; 
+    }
+    
+}

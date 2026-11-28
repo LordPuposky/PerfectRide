@@ -10,6 +10,8 @@
     </div>
 
     <main>
+
+        @* Announcement Banner *@
         <div class="top-row px-4 d-flex align-items-center">
             <AnnouncementBanner
                 Message="@AnnouncementState.Message"
@@ -34,6 +36,7 @@
 @code {
 protected override void OnInitialized()
 {
+    @* UpdateAnnouncement when it changes *@
     AnnouncementState.OnChange += HandleAnnouncementChanged;
 }
 
@@ -44,6 +47,7 @@ private void HandleAnnouncementChanged()
 
 public void Dispose()
 {
+    @* Dispose announcement *@
     AnnouncementState.OnChange -= HandleAnnouncementChanged;
 }
 }

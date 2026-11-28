@@ -1,8 +1,12 @@
-<div class="announcement-banner">
-    @if (!string.IsNullOrWhiteSpace(Message))
+
+@implements IDisposable
+
+<div class="announcement-banner @MessageType">
+    @* Display the banner if a message is passed *@
+    @if (!string.IsNullOrWhiteSpace(CurrentMessage))
     {
         <div class="announcement-track @(IsAnimated ? "scrolling" : "")">
-            <span>@Message</span>
+            <span>@CurrentMessage</span>
         </div>
     }
 </div>
@@ -12,8 +16,72 @@
     public string Message { get; set; } = "";
 
     [Parameter]
+    public List<string> Messages { get; set; } = new();
+
+    [Parameter]
     public bool IsAnimated { get; set; }
 
     [Parameter]
     public string MessageType { get; set; } = "info";
+
+    [Parameter]
+    public int RotationIntervalSeconds { get; set; } = 6;
+
+    private int _currentIndex;
+    private CancellationTokenSource? _rotationCts;
+
+    private string CurrentMessage =>
+        Messages.Count > 0
+            ? Messages[_currentIndex % Messages.Count]
+            : Message;
+
+   @* When parameters are set, if there is more than one message
+   and no rotation cancellation source exists, create one
+   and start rotating through the messages. *@
+    protected override void OnParametersSet()
+    {
+        if (Messages.Count > 1 && _rotationCts == null)
+        {
+            _rotationCts = new CancellationTokenSource();
+            _ = RotateMessagesAsync(_rotationCts.Token);
+        }
+    }
+
+    @* Periodically advance to the next message and refresh the component. *@
+    private async Task RotateMessagesAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (true)
+            {
+                await Task.Delay(
+                    TimeSpan.FromSeconds(RotationIntervalSeconds),
+                    cancellationToken);
+
+                await InvokeAsync(() =>
+                {
+                    if (Messages.Count > 1)
+                    {
+                        _currentIndex = (_currentIndex + 1) % Messages.Count;
+                        StateHasChanged();
+                    }
+                });
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Normal shutdown when the component is disposed.
+        }
+    }
+
+   
+
+ @* Stop rotating through the messages and dispose of the 
+ cancellation token source. *@
+  public void Dispose()
+{
+    _rotationCts?.Cancel();
+    _rotationCts?.Dispose();
+}
+
 }

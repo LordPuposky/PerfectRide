@@ -31,6 +31,19 @@ public class MaintenanceService(ApplicationDbContext context, MileageTrackingSer
     }
 
     /// <summary>
+    /// Returns one Maintenance Schedules for one vehicle. 
+    /// Returns an empty list if the vehicle has no maintenance schedules.
+    /// </summary>
+    public async Task<List<MaintenanceSchedule>> GetMaintenanceSchedulesForVehicleAsync(int vehicleId, string userId)
+    {
+        return await context.MaintenanceSchedules
+        .AsNoTracking()
+        .Where(s => s.VehicleId == vehicleId && s.Vehicle!.UserId == userId)
+        .ToListAsync();
+    }
+
+
+    /// <summary>
     /// Returns one maintenance record, or null if it does not exist
     /// or belongs to another user.
     /// </summary>

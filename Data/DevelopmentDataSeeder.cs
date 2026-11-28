@@ -1,3 +1,4 @@
+// Data for development and testing purposes. 
 
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -66,15 +67,16 @@ public static class DevelopmentDataSeeder
             return;
 
         // Create sample data for each vehicle.
-        foreach (var vehicle in vehicles)
+        for (int i = 0; i < vehicles.Count; i++)
         {
-            await SeedVehicleDataAsync(db, vehicle);
+            await SeedVehicleDataAsync(db, vehicles[i], i);
         }
     }
 
     private static async Task SeedVehicleDataAsync(
         ApplicationDbContext db,
-        Vehicle vehicle)
+        Vehicle vehicle,
+        int vehicleIndex)
     {
         var today = DateOnly.FromDateTime(DateTime.Today);
 
@@ -120,6 +122,50 @@ public static class DevelopmentDataSeeder
         await db.SaveChangesAsync();
 
         // -----------------------------------------
+        // MAINTENANCE TEST DATES AND MILEAGES
+        // -----------------------------------------
+
+        // Each vehicle has different service dates so we can
+        // test overdue, upcoming, and future schedules.
+
+        var (oilDate, oilMileageValue,
+             tireDate, tireMileageValue,
+             brakeDate, brakeMileageValue) = vehicleIndex switch
+             {
+                 // Toyota Camry:
+                 // Oil overdue, tires upcoming, brakes future.
+                 0 => (
+                     today.AddMonths(-7), startingMileage + 600,
+                     today.AddMonths(-6).AddDays(15), startingMileage + 800,
+                     today.AddMonths(-8), startingMileage + 500
+                 ),
+
+                 // Ford F-150:
+                 // Oil upcoming, tires future, brakes overdue.
+                 1 => (
+                     today.AddMonths(-6).AddDays(15), startingMileage + 800,
+                     today.AddMonths(-3), startingMileage + 1500,
+                     today.AddMonths(-13), startingMileage + 100
+                 ),
+
+                 // Honda CR-V:
+                 // Oil future, tires overdue, brakes upcoming.
+                 2 => (
+                     today.AddMonths(-3), startingMileage + 1500,
+                     today.AddMonths(-7), startingMileage + 650,
+                     today.AddMonths(-12).AddDays(15), startingMileage + 300
+                 ),
+
+                 // Subaru Outback:
+                 // Oil future, tires upcoming, brakes future.
+                 _ => (
+                     today.AddMonths(-3), startingMileage + 1500,
+                     today.AddMonths(-6).AddDays(15), startingMileage + 800,
+                     today.AddMonths(-8), startingMileage + 500
+                 )
+             };
+
+        // -----------------------------------------
         // MILEAGE TRACKING
         // -----------------------------------------
 
@@ -129,7 +175,7 @@ public static class DevelopmentDataSeeder
         var manualMileage = new MileageTracking
         {
             VehicleId = vehicle.Id,
-            DateRecorded = today.AddDays(-180),
+            DateRecorded = today.AddDays(-500),
             Mileage = startingMileage,
             Source = MileageSource.Manual
         };
@@ -142,28 +188,12 @@ public static class DevelopmentDataSeeder
             Source = MileageSource.FuelRecord
         };
 
-        var maintenanceMileage1 = new MileageTracking
-        {
-            VehicleId = vehicle.Id,
-            DateRecorded = today.AddDays(-105),
-            Mileage = startingMileage + 1800,
-            Source = MileageSource.MaintenanceRecord
-        };
-
         var fuelMileage2 = new MileageTracking
         {
             VehicleId = vehicle.Id,
             DateRecorded = today.AddDays(-75),
             Mileage = startingMileage + 2500,
             Source = MileageSource.FuelRecord
-        };
-
-        var maintenanceMileage2 = new MileageTracking
-        {
-            VehicleId = vehicle.Id,
-            DateRecorded = today.AddDays(-45),
-            Mileage = startingMileage + 3300,
-            Source = MileageSource.MaintenanceRecord
         };
 
         var fuelMileage3 = new MileageTracking
@@ -174,13 +204,38 @@ public static class DevelopmentDataSeeder
             Source = MileageSource.FuelRecord
         };
 
+        var oilMileage = new MileageTracking
+        {
+            VehicleId = vehicle.Id,
+            DateRecorded = oilDate,
+            Mileage = oilMileageValue,
+            Source = MileageSource.MaintenanceRecord
+        };
+
+        var tireMileage = new MileageTracking
+        {
+            VehicleId = vehicle.Id,
+            DateRecorded = tireDate,
+            Mileage = tireMileageValue,
+            Source = MileageSource.MaintenanceRecord
+        };
+
+        var brakeMileage = new MileageTracking
+        {
+            VehicleId = vehicle.Id,
+            DateRecorded = brakeDate,
+            Mileage = brakeMileageValue,
+            Source = MileageSource.MaintenanceRecord
+        };
+
         await db.MileageTrackings.AddRangeAsync(
             manualMileage,
             fuelMileage1,
-            maintenanceMileage1,
             fuelMileage2,
-            maintenanceMileage2,
-            fuelMileage3);
+            fuelMileage3,
+            oilMileage,
+            tireMileage,
+            brakeMileage);
 
         // Save first so each mileage entry has an ID.
         await db.SaveChangesAsync();
@@ -235,23 +290,34 @@ public static class DevelopmentDataSeeder
             {
                 VehicleId = vehicle.Id,
                 MaintenanceItem = MaintenanceItem.OilChange,
-                DatePerformed = today.AddDays(-105),
+                DatePerformed = oilDate,
                 Description = "Routine oil and filter replacement",
                 Cost = 69.95m,
                 ServiceProvider = "Sample Auto Service",
                 MaintenanceScheduleId = oilSchedule.Id,
-                MileageTrackingId = maintenanceMileage1.Id
+                MileageTrackingId = oilMileage.Id
             },
             new()
             {
                 VehicleId = vehicle.Id,
                 MaintenanceItem = MaintenanceItem.TireRotation,
-                DatePerformed = today.AddDays(-45),
+                DatePerformed = tireDate,
                 Description = "Tires rotated and inspected",
                 Cost = 35.00m,
                 ServiceProvider = "Sample Tire Center",
                 MaintenanceScheduleId = tireSchedule.Id,
-                MileageTrackingId = maintenanceMileage2.Id
+                MileageTrackingId = tireMileage.Id
+            },
+            new()
+            {
+                VehicleId = vehicle.Id,
+                MaintenanceItem = MaintenanceItem.BrakeInspection,
+                DatePerformed = brakeDate,
+                Description = "Brake pads, rotors, and fluid inspected",
+                Cost = 89.95m,
+                ServiceProvider = "Sample Auto Service",
+                MaintenanceScheduleId = brakeSchedule.Id,
+                MileageTrackingId = brakeMileage.Id
             }
         };
 
