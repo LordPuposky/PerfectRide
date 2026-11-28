@@ -49,7 +49,7 @@
             {
                 <div class="vehicle-card">
                     <div class="vehicle-card-header">
-                        <strong>@vehicle.Year @vehicle.Make @vehicle.Model</strong>
+                        <a href="/authenticated/vehicles/@vehicle.Id"><strong>@vehicle.Year @vehicle.Make @vehicle.Model</strong></a>
                          <a href="/authenticated/expenses/@vehicle.Id">View vehicle expenses <span aria-hidden="true">&rarr;</span></a>
                     </div>
 
@@ -79,14 +79,16 @@
 
                             @* Vehicle fuel fill-ups count. *@
                             <div>
-                                <span class="info-label">Fuel fill-ups</span>
-                                @if (fillUps.HasValue)
-                                {
-                                <strong>@fillUps entries</strong>
-                                } else
-                                {
-                                    <span>No fill-ups recorded</span>
-                                }
+                                    <span class="info-label">Fuel fill-ups</span>
+                                    @if (fillUps.HasValue)
+                                    {
+                                        <a href="/authenticated/vehicles/@vehicle.Id">
+                                            <strong>@fillUps entries</strong>
+                                        </a>
+                                    } else
+                                    {
+                                        <span>No fill-ups recorded</span>
+                                    }
 
                             </div>
 
@@ -95,7 +97,9 @@
                                 <span class="info-label">Average fuel economy</span>
                                 @if (averageFuelMileage.HasValue)
                                 {
-                                <strong>@($"{averageFuelMileage.Value.ToString("F1", UsCulture)} MPG")</strong>
+                                    <a href="/authenticated/vehicles/@vehicle.Id">
+                                        <strong>@($"{averageFuelMileage.Value.ToString("F1", UsCulture)} MPG")</strong>
+                                    </a>
                                 } else
                                 {
                                     <span>Not enough information to calculate fuel mileage</span>
@@ -107,7 +111,9 @@
                                 <span class="info-label">Maintenance Schedules</span>
                                 @if (scheduleCount.HasValue)
                                 {
-                                <strong>@scheduleCount active</strong>
+                                    <a href="/authenticated/schedules/@vehicle.Id">
+                                        <strong>@scheduleCount active</strong>
+                                    </a>
                                 } else
                                 {
                                     <span>Vehicle has no maintenance schedules</span>
@@ -117,7 +123,9 @@
                             @* Last maintenance item completed on vehicle. *@
                             <div>
                                 <span class="info-label">Last Maintenance</span>
-                                <strong>@GetLatestMaintenance(vehicle)</strong>
+                                <a href="/authenticated/maintenance/@vehicle.Id">
+                                    <strong>@GetLatestMaintenance(vehicle)</strong>
+                                </a>
                             </div>
                         </div>
                     </div>

@@ -11,6 +11,7 @@
 @inject MaintenanceScheduleService MaintenanceScheduleService
 @inject MileageTrackingService MileageTrackingService
 @inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ScheduledServicesHelper ScheduleServicesHelper
 @inject ILogger<MaintenanceCard> Logger
 
 @* Card Header *@
@@ -37,87 +38,89 @@
         }
         else
         {
-                <div class="maintenance-card mb-3">
-                    <div class="maintenance-card-header">
-                    @{
-                        (int numServices, int vehiclesServiced, decimal totalCost, decimal averageCost) = CalculateServicesStatistics(365);
-                    }
-                    <strong>Maintenance Overview</strong>
-                    </div>
-
-                    @* Render Overdue services *@
-                    <div class="maintenance-card-body">
-                        <div class="maintenance-info @(_overdueServicesCount > 0 ? "maintenance-info-alert" : "")">
-                        <strong>@_overdueServicesCount</strong>
-                        <strong>Overdue Services</strong>
-                        <p>Services requiring immediate attention</p>
-                        </div>
-                    </div>
-
-                    @* Render upcoming Services *@
-                    <div class="maintenance-card-body">
-                        <div class="maintenance-info">
-                        <strong>@_upcomingServicesCount</strong>
-                        <strong>Upcoming Services</strong>
-                        <p>Services approaching</p>
-                        </div>
-                    </div>
-
-                    @* Render maintenance Summary across all vehicles *@
-                    <div class="maintenance-card-header">
-                    <strong>Maintenance Summary</strong>
-                    </div>
-
-                    @* Render the number of services performed across all vehicles *@
-                    <div class="maintenance-card-body">
-                        <div class="maintenance-info">
-                            <div>
-                                <p>Period</p>
-                                <p>This Year</p>
+                <div>
+                        <a href="/authenticated/maintenance" class="maintenance-card mb-3">
+                            <div class="maintenance-card-header">
+                            @{
+                                (int numServices, int vehiclesServiced, decimal totalCost, decimal averageCost) = CalculateServicesStatistics(365);
+                            }
+                            <strong>Maintenance Overview</strong>
                             </div>
-                        <strong>@numServices</strong>
-                        <strong>Services performed</strong>
-                        </div>
-                    </div>
 
-                    @* Render the number of vehicles serviced *@
-                    <div class="maintenance-card-body">
-                        <div class="maintenance-info">
-                        <strong>@vehiclesServiced</strong>
-                        <strong>Vehicles Serviced</strong>
-                        </div>
-                    </div>
+                            @* Render Overdue services *@
+                            <div class="maintenance-card-body">
+                                <div class="maintenance-info @(_overdueServicesCount > 0 ? "maintenance-info-alert" : "")">
+                                <strong>@_overdueServicesCount</strong>
+                                <strong>Overdue Services</strong>
+                                <p>Services requiring immediate attention</p>
+                                </div>
+                            </div>
 
-                    @* Render the total cost for vehicle maintenance *@
-                    <div class="maintenance-card-body">
-                        <div class="maintenance-info">
-                        <strong>
-                            @totalCost.ToString("C", CultureInfo.GetCultureInfo("en-US"))
-                            </strong>
-                        <strong>Total Maintenance Cost</strong>
-                        </div>
-                    </div>
+                            @* Render upcoming Services *@
+                            <div class="maintenance-card-body">
+                                <div class="maintenance-info">
+                                <strong>@_upcomingServicesCount</strong>
+                                <strong>Upcoming Services</strong>
+                                <p>Services approaching</p>
+                                </div>
+                            </div>
 
-                    @* Render average cost per service *@
-                    <div class="maintenance-card-body">
-                        <div class="maintenance-info">
-                        <strong>
-                            @averageCost.ToString("C", CultureInfo.GetCultureInfo("en-US"))
-                        </strong>
-                        <strong>Average Cost per Service</strong>
-                        </div>
-                    </div>
+                            @* Render maintenance Summary across all vehicles *@
+                            <div class="maintenance-card-header">
+                            <strong>Maintenance Summary</strong>
+                            </div>
 
-                    @* Render recent maintenance items performed *@
-                    <div class="maintenance-card-header">
-                    <strong>Recent Maintenance</strong>
-                    </div>
-                    
-                    <div class="maintenance-card-body">
-                        <div class="maintenance-info">
-                            <RecentMaintenanceCard UpcomingServices="_upcomingServices" UserVehicles="_userVehicles" OverdueServices="_overdueServices" />
-                        </div>
-                    </div>
+                            @* Render the number of services performed across all vehicles *@
+                            <div class="maintenance-card-body">
+                                <div class="maintenance-info">
+                                    <div>
+                                        <p>Period</p>
+                                        <p>This Year</p>
+                                    </div>
+                                <strong>@numServices</strong>
+                                <strong>Services performed</strong>
+                                </div>
+                            </div>
+
+                            @* Render the number of vehicles serviced *@
+                            <div class="maintenance-card-body">
+                                <div class="maintenance-info">
+                                <strong>@vehiclesServiced</strong>
+                                <strong>Vehicles Serviced</strong>
+                                </div>
+                            </div>
+
+                            @* Render the total cost for vehicle maintenance *@
+                            <div class="maintenance-card-body">
+                                <div class="maintenance-info">
+                                <strong>
+                                    @totalCost.ToString("C", CultureInfo.GetCultureInfo("en-US"))
+                                    </strong>
+                                <strong>Total Maintenance Cost</strong>
+                                </div>
+                            </div>
+
+                            @* Render average cost per service *@
+                            <div class="maintenance-card-body">
+                                <div class="maintenance-info">
+                                <strong>
+                                    @averageCost.ToString("C", CultureInfo.GetCultureInfo("en-US"))
+                                </strong>
+                                <strong>Average Cost per Service</strong>
+                                </div>
+                            </div>
+
+                            @* Render recent maintenance items performed *@
+                            <div class="maintenance-card-header">
+                            <strong>Vehicle Maintenance Needed</strong>
+                            </div>
+                            
+                            <div class="maintenance-card-body">
+                                <div class="maintenance-info">
+                                    <RecentMaintenanceCard UpcomingServices="_upcomingServices" UserVehicles="_userVehicles" OverdueServices="_overdueServices" />
+                                </div>
+                            </div>
+                        </a>
                 </div>
             }
     </div>
@@ -186,7 +189,7 @@
                 _overdueServicesCount,
                 _overdueServices, 
                 _upcomingServicesCount,
-                _upcomingServices) = ScheduledServicesHelper.CalculateScheduledServices(
+                _upcomingServices) = await ScheduleServicesHelper.CalculateScheduledServices(
                 _userMaintenanceSchedule, 
                 _maintenanceRecords, 
                 _mileageTrackings, 
