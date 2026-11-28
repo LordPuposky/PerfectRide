@@ -192,6 +192,21 @@
   color: #687985;
 }
 
+.expense-row-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.expense-row-link:hover {
+  color: var(--secondaryBackground);
+}
+
+.expense-table-card tbody tr:hover {
+  background-color: #edf4f5;
+  cursor: pointer;
+}
+
 @media (max-width: 575.98px) {
   .expense-summary-header {
     align-items: flex-start;

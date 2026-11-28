@@ -87,12 +87,30 @@ else
                         <tbody>
                             @foreach (var record in _filteredRecords)
                             {
+                                var url = $"/authenticated/{record.SourceType}/{record.VehicleId}";
                                 var date = record.Date.ToString("MMM d, yyyy", CultureInfo.GetCultureInfo("en-US"));
+
                                 <tr>
-                                    <td>@date</td>
-                                    <td>@record.Source</td>
-                                    <td>@record.Mileage.ToString("N0", CultureInfo.GetCultureInfo("en-US")) miles</td>
-                                    <td class="expense-cost">@record.Cost.ToString("C", CultureInfo.GetCultureInfo("en-US"))</td>
+                                    <td>
+                                        <a href="@url" class="expense-row-link">
+                                            @date
+                                        </a>
+                                    </td>
+                                    <td>
+                                        <a href="@url" class="expense-row-link">
+                                            @record.Source
+                                        </a>
+                                    </td>
+                                    <td>
+                                        <a href="@url" class="expense-row-link">
+                                            @record.Mileage.ToString("N0", CultureInfo.GetCultureInfo("en-US")) miles
+                                        </a>
+                                    </td>
+                                    <td class="expense-cost">
+                                        <a href="@url" class="expense-row-link">
+                                            @record.Cost.ToString("C", CultureInfo.GetCultureInfo("en-US"))
+                                        </a>
+                                    </td>
                                 </tr>
                             }
                         </tbody>
@@ -109,18 +127,22 @@ else
 
     private sealed class CostRecord
     {
-        public CostRecord(DateOnly date, string source, int mileage, decimal cost)
+        public CostRecord(DateOnly date, string source, int mileage, decimal cost, string vehicleId, string sourceType)
         {
             Date = date;
             Source = source;
             Mileage = mileage;
             Cost = cost;
+            VehicleId = vehicleId;
+            SourceType = sourceType;
         }
 
         public DateOnly Date { get; }
         public string Source { get; }
         public int Mileage { get; }
         public decimal Cost { get; }
+        public string VehicleId { get; }
+        public string SourceType { get; }
     }
 
     private string _selectedPeriod = "0";
@@ -172,7 +194,9 @@ else
                     record.DatePerformed,
                     $"Maintenance Record {record.Id}, {DisplayNameHelper.ToDisplayName(record.MaintenanceItem)}",
                     tracking.Mileage,
-                    record.Cost ?? 0));
+                    record.Cost ?? 0,
+                    _vehicle.Id.ToString(),
+                    "maintenance"));
             }
         }
 
@@ -185,7 +209,9 @@ else
                     record.DateFilled,
                     $"Fuel Record {record.Id}",
                     tracking.Mileage,
-                    record.TotalCost));
+                    record.TotalCost,
+                    _vehicle.Id.ToString(),
+                    "vehicles"));
             }
         }
 

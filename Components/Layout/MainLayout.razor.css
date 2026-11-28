@@ -13,7 +13,7 @@ main {
 }
 
 .top-row {
-  background-color: #238c91;
+  background-color: var(--secondaryBackground);
   border-bottom: 2px solid #172f43;
   height: 3.5rem;
   display: flex;
