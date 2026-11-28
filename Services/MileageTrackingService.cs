@@ -69,6 +69,26 @@ public class MileageTrackingService(ApplicationDbContext context)
             .ToDictionaryAsync(x => x.VehicleId, x => x.Mileage);
     }
 
+    public async Task<(DateOnly, DateOnly)> GetDateRangeForVehicle(int vehicleId)
+    {
+        MileageTracking? beginningDateRecord = await context.MileageTrackings
+        .Where(m => m.VehicleId == vehicleId)
+        .OrderBy(m => m.Mileage)
+        .FirstOrDefaultAsync();
+
+        var beginningDate = beginningDateRecord?.DateRecorded ?? DateOnly.FromDateTime(DateTime.Now);
+
+        MileageTracking? endingDateRecord = await context.MileageTrackings
+        .Where(m => m.VehicleId == vehicleId)
+        .OrderByDescending(m => m.Mileage)
+        .FirstOrDefaultAsync();
+
+        var endingDate = endingDateRecord?.DateRecorded ?? DateOnly.FromDateTime(DateTime.Now);
+
+        return (beginningDate, endingDate);
+    }
+
+
 
     public async Task ValidateMileageAsync(
         int vehicleId,
