@@ -16,6 +16,8 @@ public enum ScheduleStatus
 
 /// <summary>
 /// The last service of a schedule, when it is due next, and its status.
+/// When IsEstimated is true, no service is recorded yet: LastDate and LastMileage are the
+/// vehicle's first mileage reading (the start of tracking), and the next due is an estimate.
 /// Any value can be null when there is not enough information.
 /// </summary>
 public record ScheduleDueInfo(
@@ -23,7 +25,8 @@ public record ScheduleDueInfo(
     int? LastMileage,
     DateOnly? NextDate,
     int? NextMileage,
-    ScheduleStatus Status);
+    ScheduleStatus Status,
+    bool IsEstimated = false);
 
 /// <summary>
 /// Calculates when a scheduled service is due, based on its most recent linked record.
@@ -37,24 +40,42 @@ public static class ScheduleStatusHelper
     /// <summary>
     /// Returns the due information of a schedule.
     /// The schedule must include its MaintenanceRecords with their MileageTracking.
+    /// If no service is recorded yet, the next due is estimated from firstReading
+    /// (the vehicle's first mileage reading), the same idea the dashboard uses.
     /// "today" is a parameter so the calculation can be tested with any date.
     /// </summary>
-    public static ScheduleDueInfo GetDueInfo(MaintenanceSchedule schedule, int? currentMileage, DateOnly today)
+    public static ScheduleDueInfo GetDueInfo(
+        MaintenanceSchedule schedule, int? currentMileage, DateOnly today, MileageTracking? firstReading = null)
     {
         var lastRecord = schedule.MaintenanceRecords
             .OrderByDescending(r => r.DatePerformed)
             .ThenByDescending(r => r.MileageTracking?.Mileage ?? 0)
             .FirstOrDefault();
 
-        if (lastRecord is null)
+        DateOnly baseDate;
+        int? lastMileage;
+        bool isEstimated = false;
+
+        if (lastRecord is not null)
         {
+            baseDate = lastRecord.DatePerformed;
+            lastMileage = lastRecord.MileageTracking?.Mileage;
+        }
+        else if (firstReading is not null)
+        {
+            // No service yet: count the interval from the start of tracking.
+            baseDate = firstReading.DateRecorded;
+            lastMileage = firstReading.Mileage;
+            isEstimated = true;
+        }
+        else
+        {
+            // No service and no mileage readings: nothing to calculate.
             return new ScheduleDueInfo(null, null, null, null, ScheduleStatus.NoServiceYet);
         }
 
-        int? lastMileage = lastRecord.MileageTracking?.Mileage;
-
         DateOnly? nextDate = schedule.IntervalMonths is int months
-            ? lastRecord.DatePerformed.AddMonths(months)
+            ? baseDate.AddMonths(months)
             : null;
 
         int? nextMileage = schedule.IntervalMileage is int interval && lastMileage is int last
@@ -72,6 +93,6 @@ public static class ScheduleStatusHelper
             : soonByDate || soonByMileage ? ScheduleStatus.DueSoon
             : ScheduleStatus.Ok;
 
-        return new ScheduleDueInfo(lastRecord.DatePerformed, lastMileage, nextDate, nextMileage, status);
+        return new ScheduleDueInfo(baseDate, lastMileage, nextDate, nextMileage, status, isEstimated);
     }
 }

@@ -31,6 +31,27 @@ public class MaintenanceService(ApplicationDbContext context, MileageTrackingSer
     }
 
     /// <summary>
+    /// Returns, for each of the user's vehicles that has records, how many services it has
+    /// and the date of the most recent one, in a single query.
+    /// Vehicles without records are not in the dictionary.
+    /// </summary>
+    public async Task<Dictionary<int, (int Count, DateOnly LastDate)>> GetServiceSummaryByVehicleAsync(string userId)
+    {
+        var summaries = await context.MaintenanceRecords
+            .Where(r => r.Vehicle!.UserId == userId)
+            .GroupBy(r => r.VehicleId)
+            .Select(g => new
+            {
+                VehicleId = g.Key,
+                Count = g.Count(),
+                LastDate = g.Max(r => r.DatePerformed)
+            })
+            .ToListAsync();
+
+        return summaries.ToDictionary(s => s.VehicleId, s => (s.Count, s.LastDate));
+    }
+
+    /// <summary>
     /// Returns one Maintenance Schedules for one vehicle. 
     /// Returns an empty list if the vehicle has no maintenance schedules.
     /// </summary>
