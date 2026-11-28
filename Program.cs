@@ -65,8 +65,12 @@ builder.Services.AddScoped<MaintenanceScheduleService>();
 
 var app = builder.Build();
 
-//Temporary Vehicle Db Seed data
-await DevelopmentDataSeeder.SeedAsync(app.Services);
+// Apply pending database migrations at startup.
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    await db.Database.MigrateAsync();
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

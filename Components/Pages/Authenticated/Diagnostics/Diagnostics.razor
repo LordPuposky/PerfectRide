@@ -1,0 +1,113 @@
+@page "/authenticated/diagnostics"
+@using Microsoft.AspNetCore.SignalR
+@using Microsoft.CodeAnalysis.CSharp.Syntax
+@using Microsoft.EntityFrameworkCore;
+@using PerfectRide.Components.Shared.DashboardCards
+@using PerfectRide.Data;
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ApplicationDbContext Context
+
+@* Page Header and title *@
+<h3>Database Diagnostics</h3>
+
+<h4>Registered Users</h4>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Email</th>
+            <th>User ID</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var user in _users)
+        {
+            <tr>
+                <td>@user.Email</td>
+                <td>@user.Id</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<h4>Vehicle Counts by User</h4>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>User ID</th>
+            <th>Vehicle Count</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in _vehicleCounts)
+        {
+            <tr>
+                <td>@item.UserId</td>
+                <td>@item.Count</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<h4>VehicleId by UserId</h4>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>User ID</th>
+            <th>Vehicle Count</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var vehicle in _vehicles)
+        {
+            <tr>
+                <td>@vehicle.UserId</td>
+                <td>@vehicle.Id</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code{
+
+    private List<ApplicationUser> _users = new();
+
+    private List<VehicleCount> _vehicleCounts = new();
+
+    private string _userId = "";
+    private List<Vehicle> _vehicles = new(); 
+
+private class VehicleCount
+{
+    public string? UserId { get; set; }
+    public int Count { get; set; }
+}
+
+protected override async Task OnInitializedAsync()
+{
+    var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+
+    _userId = authState.User
+        .FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+    _vehicles = await Context.Vehicles
+        .IgnoreQueryFilters()
+        .ToListAsync();
+
+    _users = await Context.Users
+        .ToListAsync();
+
+    _vehicleCounts = await Context.Vehicles
+        .IgnoreQueryFilters()
+        .GroupBy(v => v.UserId)
+        .Select(g => new VehicleCount
+        {
+            UserId = g.Key,
+            Count = g.Count()
+        })
+        .ToListAsync();
+}
+
+}

@@ -1,14 +1,27 @@
-// Data for development and testing purposes. 
 
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using PerfectRide.Data;
 
 namespace PerfectRide.Data;
 
+// Data for development and testing purposes.
 public static class DevelopmentDataSeeder
 {
-    public static async Task SeedAsync(IServiceProvider services)
+    // December 9, 2026 is the assignment demonstration target date.
+    private static readonly DateOnly ReferenceDate = new(2026, 12, 9);
+
+    // Vehicle-specific mileage and fuel information.
+    private sealed record VehicleMileageProfile(
+        int StartingMileage,
+        int BrakeOffset,
+        int OilOffset,
+        int TireOffset,
+        int Fuel1Offset,
+        int Fuel2Offset,
+        int Fuel3Offset,
+        decimal Fuel2Gallons,
+        decimal Fuel3Gallons);
+
+    public static async Task SeedAsync(IServiceProvider services, string userId)
     {
         using var scope = services.CreateScope();
 
@@ -17,59 +30,54 @@ public static class DevelopmentDataSeeder
         var environment = serviceProvider
             .GetRequiredService<IHostEnvironment>();
 
-        // Never seed sample data in production.
-        if (!environment.IsDevelopment())
+        var configuration = serviceProvider
+            .GetRequiredService<IConfiguration>();
+
+        // Allow seeding in Development or when explicitly enabled for the hosted demo.
+        if (!environment.IsDevelopment() &&
+            !configuration.GetValue<bool>("DemoData:Enabled"))
+        {
             return;
+        }
 
-        var userManager = serviceProvider
-            .GetRequiredService<UserManager<ApplicationUser>>();
-
-        var db = serviceProvider
-            .GetRequiredService<ApplicationDbContext>();
-
-        // Find the existing user.
-        var user = await userManager.Users.SingleOrDefaultAsync();
-
-        if (user == null)
-            return;
+        var db = serviceProvider.GetRequiredService<ApplicationDbContext>();
 
         // Get this user's vehicles.
         var vehicles = await db.Vehicles
-            .Where(v => v.UserId == user.Id)
+            .Where(v => v.UserId == userId)
             .ToListAsync();
 
-        // Create sample vehicles if none exist.
+        // Create sample vehicles if this user has none.
         if (vehicles.Count == 0)
         {
             vehicles = new List<Vehicle>
             {
-                new() { Year = 2018, Make = "Toyota", Model = "Camry", UserId = user.Id },
-                new() { Year = 2021, Make = "Ford", Model = "F-150", UserId = user.Id },
-                new() { Year = 2016, Make = "Honda", Model = "CR-V", UserId = user.Id },
-                new() { Year = 2023, Make = "Subaru", Model = "Outback", UserId = user.Id }
+                new() { Year = 2018, Make = "Toyota", Model = "Camry", UserId = userId },
+                new() { Year = 2021, Make = "Ford", Model = "F-150", UserId = userId },
+                new() { Year = 2016, Make = "Honda", Model = "CR-V", UserId = userId },
+                new() { Year = 2023, Make = "Subaru", Model = "Outback", UserId = userId }
             };
 
             await db.Vehicles.AddRangeAsync(vehicles);
             await db.SaveChangesAsync();
         }
 
-        // Avoid inserting duplicate related test data.
-        var vehicleIds = vehicles.Select(v => v.Id).ToList();
-
-        var hasRelatedData =
-            await db.MaintenanceSchedules.AnyAsync(s => vehicleIds.Contains(s.VehicleId)) ||
-            await db.MaintenanceRecords.AnyAsync(r => vehicleIds.Contains(r.VehicleId)) ||
-            await db.FuelRecords.AnyAsync(f => vehicleIds.Contains(f.VehicleId)) ||
-            await db.Documents.AnyAsync(d => vehicleIds.Contains(d.VehicleId)) ||
-            await db.MileageTrackings.AnyAsync(m => vehicleIds.Contains(m.VehicleId));
-
-        if (hasRelatedData)
-            return;
-
-        // Create sample data for each vehicle.
+        // Seed related data separately for each vehicle.
         for (int i = 0; i < vehicles.Count; i++)
         {
-            await SeedVehicleDataAsync(db, vehicles[i], i);
+            var vehicle = vehicles[i];
+
+            // Skip vehicles that already have related data.
+            bool hasRelatedData =
+                await db.MaintenanceSchedules.AnyAsync(s => s.VehicleId == vehicle.Id) ||
+                await db.MaintenanceRecords.AnyAsync(r => r.VehicleId == vehicle.Id) ||
+                await db.FuelRecords.AnyAsync(f => f.VehicleId == vehicle.Id) ||
+                await db.MileageTrackings.AnyAsync(m => m.VehicleId == vehicle.Id);
+
+            if (hasRelatedData)
+                continue;
+
+            await SeedVehicleDataAsync(db, vehicle, i);
         }
     }
 
@@ -78,11 +86,45 @@ public static class DevelopmentDataSeeder
         Vehicle vehicle,
         int vehicleIndex)
     {
-        var today = DateOnly.FromDateTime(DateTime.Today);
+        // Each vehicle's related data is saved as one transaction.
+        await using var transaction = await db.Database.BeginTransactionAsync();
 
-        // Establish a reasonable starting odometer reading.
-        var startingMileage =
-            30000 + Math.Max(0, DateTime.Today.Year - Convert.ToInt32(vehicle.Year)) * 10000;
+        // -----------------------------------------
+        // VEHICLE-SPECIFIC MILEAGE PROFILES
+        // -----------------------------------------
+
+        var profile = vehicleIndex switch
+        {
+            // Toyota Camry
+            0 => new VehicleMileageProfile(
+                82000,
+                350, 650, 850,
+                1100, 1550, 2000,
+                14.5m, 14.0m),
+
+            // Ford F-150
+            1 => new VehicleMileageProfile(
+                76000,
+                300, 900, 1600,
+                1300, 1800, 2400,
+                20.0m, 21.0m),
+
+            // Honda CR-V
+            2 => new VehicleMileageProfile(
+                112000,
+                250, 1400, 800,
+                1200, 1700, 2050,
+                13.5m, 13.8m),
+
+            // Subaru Outback
+            _ => new VehicleMileageProfile(
+                28000,
+                0, 1400, 800,
+                1100, 1700, 2000,
+                14.0m, 15.7m)
+        };
+
+        int startingMileage = profile.StartingMileage;
 
         // -----------------------------------------
         // MAINTENANCE SCHEDULES
@@ -122,60 +164,58 @@ public static class DevelopmentDataSeeder
         await db.SaveChangesAsync();
 
         // -----------------------------------------
-        // MAINTENANCE TEST DATES AND MILEAGES
+        // MAINTENANCE TEST DATES
         // -----------------------------------------
 
-        // Each vehicle has different service dates so we can
-        // test overdue, upcoming, and future schedules.
+        // Dates are selected to demonstrate different schedule
+        // statuses on December 9, 2026.
 
-        var (oilDate, oilMileageValue,
-             tireDate, tireMileageValue,
-             brakeDate, brakeMileageValue) = vehicleIndex switch
-             {
-                 // Toyota Camry:
-                 // Oil overdue, tires upcoming, brakes future.
-                 0 => (
-                     today.AddMonths(-7), startingMileage + 600,
-                     today.AddMonths(-6).AddDays(15), startingMileage + 800,
-                     today.AddMonths(-8), startingMileage + 500
-                 ),
+        var (oilDate, tireDate, brakeDate) = vehicleIndex switch
+        {
+            // Toyota: oil overdue, tires due soon, brakes OK.
+            0 => (
+                ReferenceDate.AddMonths(-7),
+                ReferenceDate.AddMonths(-6).AddDays(15),
+                ReferenceDate.AddMonths(-8)
+            ),
 
-                 // Ford F-150:
-                 // Oil upcoming, tires future, brakes overdue.
-                 1 => (
-                     today.AddMonths(-6).AddDays(15), startingMileage + 800,
-                     today.AddMonths(-3), startingMileage + 1500,
-                     today.AddMonths(-13), startingMileage + 100
-                 ),
+            // Ford: oil due soon, tires OK, brakes overdue.
+            1 => (
+                ReferenceDate.AddMonths(-6).AddDays(15),
+                ReferenceDate.AddMonths(-3),
+                ReferenceDate.AddMonths(-13)
+            ),
 
-                 // Honda CR-V:
-                 // Oil future, tires overdue, brakes upcoming.
-                 2 => (
-                     today.AddMonths(-3), startingMileage + 1500,
-                     today.AddMonths(-7), startingMileage + 650,
-                     today.AddMonths(-12).AddDays(15), startingMileage + 300
-                 ),
+            // Honda: oil OK, tires overdue, brakes due soon.
+            2 => (
+                ReferenceDate.AddMonths(-3),
+                ReferenceDate.AddMonths(-7),
+                ReferenceDate.AddMonths(-12).AddDays(15)
+            ),
 
-                 // Subaru Outback:
-                 // Oil future, tires upcoming, brakes future.
-                 _ => (
-                     today.AddMonths(-3), startingMileage + 1500,
-                     today.AddMonths(-6).AddDays(15), startingMileage + 800,
-                     today.AddMonths(-8), startingMileage + 500
-                 )
-             };
+            // Subaru: oil OK, tires due soon, no brake service.
+            _ => (
+                ReferenceDate.AddMonths(-3),
+                ReferenceDate.AddMonths(-6).AddDays(15),
+                ReferenceDate.AddMonths(-8)
+            )
+        };
+
+        int oilMileageValue = startingMileage + profile.OilOffset;
+        int tireMileageValue = startingMileage + profile.TireOffset;
+        int brakeMileageValue = startingMileage + profile.BrakeOffset;
 
         // -----------------------------------------
         // MILEAGE TRACKING
         // -----------------------------------------
 
-        // Each fuel and maintenance record gets its
-        // own mileage tracking entry.
+        // Each fuel and maintenance record gets its own
+        // MileageTracking entry.
 
         var manualMileage = new MileageTracking
         {
             VehicleId = vehicle.Id,
-            DateRecorded = today.AddDays(-500),
+            DateRecorded = ReferenceDate.AddDays(-500),
             Mileage = startingMileage,
             Source = MileageSource.Manual
         };
@@ -183,24 +223,24 @@ public static class DevelopmentDataSeeder
         var fuelMileage1 = new MileageTracking
         {
             VehicleId = vehicle.Id,
-            DateRecorded = today.AddDays(-135),
-            Mileage = startingMileage + 1000,
+            DateRecorded = ReferenceDate.AddDays(-135),
+            Mileage = startingMileage + profile.Fuel1Offset,
             Source = MileageSource.FuelRecord
         };
 
         var fuelMileage2 = new MileageTracking
         {
             VehicleId = vehicle.Id,
-            DateRecorded = today.AddDays(-75),
-            Mileage = startingMileage + 2500,
+            DateRecorded = ReferenceDate.AddDays(-75),
+            Mileage = startingMileage + profile.Fuel2Offset,
             Source = MileageSource.FuelRecord
         };
 
         var fuelMileage3 = new MileageTracking
         {
             VehicleId = vehicle.Id,
-            DateRecorded = today.AddDays(-15),
-            Mileage = startingMileage + 4200,
+            DateRecorded = ReferenceDate.AddDays(-15),
+            Mileage = startingMileage + profile.Fuel3Offset,
             Source = MileageSource.FuelRecord
         };
 
@@ -220,22 +260,35 @@ public static class DevelopmentDataSeeder
             Source = MileageSource.MaintenanceRecord
         };
 
-        var brakeMileage = new MileageTracking
+        var mileageEntries = new List<MileageTracking>
         {
-            VehicleId = vehicle.Id,
-            DateRecorded = brakeDate,
-            Mileage = brakeMileageValue,
-            Source = MileageSource.MaintenanceRecord
-        };
-
-        await db.MileageTrackings.AddRangeAsync(
             manualMileage,
             fuelMileage1,
             fuelMileage2,
             fuelMileage3,
             oilMileage,
-            tireMileage,
-            brakeMileage);
+            tireMileage
+        };
+
+        // The Subaru's brake schedule intentionally has no service record.
+        bool includeBrakeRecord = vehicleIndex != 3;
+
+        MileageTracking? brakeMileage = null;
+
+        if (includeBrakeRecord)
+        {
+            brakeMileage = new MileageTracking
+            {
+                VehicleId = vehicle.Id,
+                DateRecorded = brakeDate,
+                Mileage = brakeMileageValue,
+                Source = MileageSource.MaintenanceRecord
+            };
+
+            mileageEntries.Add(brakeMileage);
+        }
+
+        await db.MileageTrackings.AddRangeAsync(mileageEntries);
 
         // Save first so each mileage entry has an ID.
         await db.SaveChangesAsync();
@@ -249,7 +302,7 @@ public static class DevelopmentDataSeeder
             new()
             {
                 VehicleId = vehicle.Id,
-                DateFilled = today.AddDays(-135),
+                DateFilled = ReferenceDate.AddDays(-135),
                 Gallons = 15.200m,
                 PricePerGallon = 3.390m,
                 TotalCost = 51.53m,
@@ -259,20 +312,20 @@ public static class DevelopmentDataSeeder
             new()
             {
                 VehicleId = vehicle.Id,
-                DateFilled = today.AddDays(-75),
-                Gallons = 13.800m,
+                DateFilled = ReferenceDate.AddDays(-75),
+                Gallons = profile.Fuel2Gallons,
                 PricePerGallon = 3.450m,
-                TotalCost = 47.61m,
+                TotalCost = decimal.Round(profile.Fuel2Gallons * 3.450m, 2),
                 IsFullTank = true,
                 MileageTrackingId = fuelMileage2.Id
             },
             new()
             {
                 VehicleId = vehicle.Id,
-                DateFilled = today.AddDays(-15),
-                Gallons = 14.700m,
+                DateFilled = ReferenceDate.AddDays(-15),
+                Gallons = profile.Fuel3Gallons,
                 PricePerGallon = 3.290m,
-                TotalCost = 48.36m,
+                TotalCost = decimal.Round(profile.Fuel3Gallons * 3.290m, 2),
                 IsFullTank = true,
                 MileageTrackingId = fuelMileage3.Id
             }
@@ -307,8 +360,12 @@ public static class DevelopmentDataSeeder
                 ServiceProvider = "Sample Tire Center",
                 MaintenanceScheduleId = tireSchedule.Id,
                 MileageTrackingId = tireMileage.Id
-            },
-            new()
+            }
+        };
+
+        if (includeBrakeRecord && brakeMileage != null)
+        {
+            maintenanceRecords.Add(new MaintenanceRecord
             {
                 VehicleId = vehicle.Id,
                 MaintenanceItem = MaintenanceItem.BrakeInspection,
@@ -318,67 +375,12 @@ public static class DevelopmentDataSeeder
                 ServiceProvider = "Sample Auto Service",
                 MaintenanceScheduleId = brakeSchedule.Id,
                 MileageTrackingId = brakeMileage.Id
-            }
-        };
+            });
+        }
 
         await db.MaintenanceRecords.AddRangeAsync(maintenanceRecords);
-
         await db.SaveChangesAsync();
 
-        // -----------------------------------------
-        // DOCUMENTS
-        // -----------------------------------------
-
-        var documents = new List<Document>
-        {
-            new()
-            {
-                VehicleId = vehicle.Id,
-                DocumentType = DocumentType.Registration,
-                Name = "Vehicle Registration",
-                FileName = "registration.pdf",
-                FileType = FileType.Pdf,
-                FilePath = $"seed-data/{vehicle.Id}/registration.pdf",
-                DateUploaded = DateTime.Now.AddDays(-150),
-                Description = "Sample vehicle registration"
-            },
-            new()
-            {
-                VehicleId = vehicle.Id,
-                DocumentType = DocumentType.Insurance,
-                Name = "Insurance Policy",
-                FileName = "insurance.pdf",
-                FileType = FileType.Pdf,
-                FilePath = $"seed-data/{vehicle.Id}/insurance.pdf",
-                DateUploaded = DateTime.Now.AddDays(-90),
-                Description = "Sample insurance documentation"
-            },
-            new()
-            {
-                VehicleId = vehicle.Id,
-                DocumentType = DocumentType.Warranty,
-                Name = "Vehicle Warranty",
-                FileName = "warranty.pdf",
-                FileType = FileType.Pdf,
-                FilePath = $"seed-data/{vehicle.Id}/warranty.pdf",
-                DateUploaded = DateTime.Now.AddDays(-60),
-                Description = "Sample warranty documentation"
-            },
-            new()
-            {
-                VehicleId = vehicle.Id,
-                DocumentType = DocumentType.Receipt,
-                Name = "Maintenance Receipt",
-                FileName = "maintenance-receipt.jpg",
-                FileType = FileType.Jpg,
-                FilePath = $"seed-data/{vehicle.Id}/maintenance-receipt.jpg",
-                DateUploaded = DateTime.Now.AddDays(-45),
-                Description = "Sample maintenance receipt"
-            }
-        };
-
-        await db.Documents.AddRangeAsync(documents);
-
-        await db.SaveChangesAsync();
+        await transaction.CommitAsync();
     }
 }
