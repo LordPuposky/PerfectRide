@@ -57,7 +57,8 @@ else
                 <caption>
                     Maintenance schedules for @VehicleName. A service is due at the date or the mileage,
                     whichever comes first. "Due soon" means within @ScheduleStatusHelper.DueSoonDays days
-                    or @ScheduleStatusHelper.DueSoonMiles miles.
+                    or @ScheduleStatusHelper.DueSoonMiles miles. When no service is recorded yet,
+                    the next due is estimated from the vehicle's first mileage reading.
                 </caption>
                 <thead>
                     <tr>
@@ -73,7 +74,7 @@ else
                     @foreach (var schedule in _schedules)
                     {
                         var serviceName = DisplayNameHelper.ToDisplayName(schedule.MaintenanceItem);
-                        var info = ScheduleStatusHelper.GetDueInfo(schedule, _currentMileage, _today);
+                        var info = ScheduleStatusHelper.GetDueInfo(schedule, _currentMileage, _today, _firstReading);
 
                         <tr>
                             <td>
@@ -84,8 +85,24 @@ else
                                 }
                             </td>
                             <td>@IntervalText(schedule)</td>
-                            <td>@LastServiceText(info)</td>
-                            <td>@NextDueText(info)</td>
+                            <td>
+                                @if (info.IsEstimated)
+                                {
+                                    <span>No service yet</span>
+                                    <div class="small">Tracking since @LastServiceText(info)</div>
+                                }
+                                else
+                                {
+                                    @LastServiceText(info)
+                                }
+                            </td>
+                            <td>
+                                @NextDueText(info)
+                                @if (info.IsEstimated)
+                                {
+                                    <div class="small">(estimated)</div>
+                                }
+                            </td>
                             <td><span class="badge @StatusClass(info.Status)">@StatusText(info.Status)</span></td>
                             <td class="text-nowrap">
                                 @if (_pendingDeleteId == schedule.Id)
@@ -121,6 +138,7 @@ else
     private Vehicle? _vehicle;
     private List<MaintenanceSchedule> _schedules = new();
     private int? _currentMileage;
+    private MileageTracking? _firstReading;
     private readonly DateOnly _today = DateOnly.FromDateTime(DateTime.Today);
     private string? _userId;
     private bool _isLoading = true;
@@ -155,6 +173,7 @@ else
     {
         _schedules = await ScheduleService.GetSchedulesForVehicleAsync(VehicleId, _userId!);
         _currentMileage = await ScheduleService.GetCurrentMileageAsync(VehicleId, _userId!);
+        _firstReading = await ScheduleService.GetFirstReadingAsync(VehicleId, _userId!);
     }
 
     private static string IntervalText(MaintenanceSchedule schedule)

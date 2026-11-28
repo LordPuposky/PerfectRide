@@ -87,6 +87,21 @@ public class MaintenanceScheduleService(ApplicationDbContext context)
     }
 
     /// <summary>
+    /// Returns the first mileage reading of the vehicle (the start of tracking),
+    /// or null if the vehicle has no readings or belongs to another user.
+    /// Used to estimate when a scheduled service is due when no service is recorded yet.
+    /// </summary>
+    public async Task<MileageTracking?> GetFirstReadingAsync(int vehicleId, string userId)
+    {
+        return await context.MileageTrackings
+            .AsNoTracking()
+            .Where(m => m.VehicleId == vehicleId && m.Vehicle!.UserId == userId)
+            .OrderBy(m => m.DateRecorded)
+            .ThenBy(m => m.Mileage)
+            .FirstOrDefaultAsync();
+    }
+
+    /// <summary>
     /// Returns how many schedules each of the user's vehicles has (vehicle id, count).
     /// Vehicles without schedules are not in the dictionary.
     /// </summary>

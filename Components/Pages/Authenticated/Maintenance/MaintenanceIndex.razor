@@ -28,16 +28,17 @@ else
         @foreach (var vehicle in _vehicles)
         {
             var vehicleName = $"{vehicle.Year} {vehicle.Make} {vehicle.Model}";
-            var lastService = _maintenanceRecords.FirstOrDefault();
+            // Each vehicle uses its own summary; vehicles without records have none.
+            bool hasServices = _summaries.TryGetValue(vehicle.Id, out var summary);
 
             <li class="card mb-3">
                 <div class="card-body">
                     <h2 class="h5 card-title">@vehicleName</h2>
                     <p class="mb-2">
-                        @ServiceCountText(vehicle.MaintenanceRecords.Count)
-                        @if (lastService is not null)
+                        @ServiceCountText(hasServices ? summary.Count : 0)
+                        @if (hasServices)
                         {
-                            <span> · Last service: @lastService.DatePerformed.ToString("MMM d, yyyy", UsCulture)</span>
+                            <span> · Last service: @summary.LastDate.ToString("MMM d, yyyy", UsCulture)</span>
                         }
                     </p>
                     <a class="btn btn-primary" href="/authenticated/maintenance/@vehicle.Id"
@@ -55,7 +56,8 @@ else
     private static readonly CultureInfo UsCulture = CultureInfo.GetCultureInfo("en-US");
 
     private List<Vehicle> _vehicles = new();
-    private List<MaintenanceRecord> _maintenanceRecords = new(); 
+    // Number of services and last service date for each vehicle id.
+    private Dictionary<int, (int Count, DateOnly LastDate)> _summaries = new();
     private bool _isLoading = true;
 
     protected override async Task OnInitializedAsync()
@@ -63,14 +65,11 @@ else
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
         var userId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-        // VehicleService only returns vehicles that belong to this user.
+        // Both services only return data that belongs to this user.
         if (!string.IsNullOrEmpty(userId))
         {
             _vehicles = await VehicleService.GetVehiclesAsync(userId);
-            foreach (Vehicle v in _vehicles)
-            {
-                _maintenanceRecords = await MaintenanceService.GetRecordsForVehicleAsync(v.Id, userId); 
-            }
+            _summaries = await MaintenanceService.GetServiceSummaryByVehicleAsync(userId);
         }
 
         _isLoading = false;
