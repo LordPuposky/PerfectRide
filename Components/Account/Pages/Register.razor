@@ -7,6 +7,7 @@
 @using Microsoft.AspNetCore.WebUtilities
 @using PerfectRide.Data
 
+@inject IServiceProvider Services
 @inject UserManager<ApplicationUser> UserManager
 @inject IUserStore<ApplicationUser> UserStore
 @inject SignInManager<ApplicationUser> SignInManager
@@ -86,6 +87,17 @@
         }
 
         Logger.LogInformation("User created a new account with password.");
+
+        // Seed sample data for this newly registered user.
+        try
+        {
+            await DevelopmentDataSeeder.SeedAsync(Services, user.Id);
+        }
+        catch (Exception ex)
+        {
+            // A seeding failure should not prevent the user from registering.
+            Logger.LogError(ex, "Unable to seed sample data for the new user.");
+        }
 
         var userId = await UserManager.GetUserIdAsync(user);
         var code = await UserManager.GenerateEmailConfirmationTokenAsync(user);

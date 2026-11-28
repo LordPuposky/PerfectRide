@@ -31,6 +31,27 @@ public class MaintenanceService(ApplicationDbContext context, MileageTrackingSer
     }
 
     /// <summary>
+    /// Returns, for each of the user's vehicles that has records, how many services it has
+    /// and the date of the most recent one, in a single query.
+    /// Vehicles without records are not in the dictionary.
+    /// </summary>
+    public async Task<Dictionary<int, (int Count, DateOnly LastDate)>> GetServiceSummaryByVehicleAsync(string userId)
+    {
+        var summaries = await context.MaintenanceRecords
+            .Where(r => r.Vehicle!.UserId == userId)
+            .GroupBy(r => r.VehicleId)
+            .Select(g => new
+            {
+                VehicleId = g.Key,
+                Count = g.Count(),
+                LastDate = g.Max(r => r.DatePerformed)
+            })
+            .ToListAsync();
+
+        return summaries.ToDictionary(s => s.VehicleId, s => (s.Count, s.LastDate));
+    }
+
+    /// <summary>
     /// Returns one Maintenance Schedules for one vehicle. 
     /// Returns an empty list if the vehicle has no maintenance schedules.
     /// </summary>
@@ -270,53 +291,34 @@ public class MaintenanceService(ApplicationDbContext context, MileageTrackingSer
     /// Applies the business rules from the database guide.
     /// Throws an exception with a user-friendly message if a rule fails.
     /// </summary>
-    private async Task ValidateAsync(MaintenanceRecord record, int mileage, string userId, int? excludedReadingId)
+
+    private async Task ValidateAsync(
+        MaintenanceRecord record,
+        int mileage,
+        string userId,
+        int? excludedReadingId)
     {
         bool ownsVehicle = await context.Vehicles
             .AnyAsync(v => v.Id == record.VehicleId && v.UserId == userId);
+
         if (!ownsVehicle)
         {
-            throw new UnauthorizedAccessException("The vehicle does not belong to the current user.");
+            throw new UnauthorizedAccessException(
+                "The vehicle does not belong to the current user.");
         }
 
-        if (mileage < 0 || mileage > 999999)
-        {
-            throw new ArgumentException("Mileage must be between 0 and 999,999.");
-        }
+        // Validate mileage against the vehicle's existing mileage history.
+        await mileageTrackingService.ValidateMileageAsync(
+            record.VehicleId,
+            record.DatePerformed,
+            mileage,
+            excludedReadingId);
 
-        // An odometer never goes backward: the mileage must fit between
-        // the readings recorded before and after this date for the same vehicle.
-        var otherReadings = context.MileageTrackings
-            .Where(m => m.VehicleId == record.VehicleId);
-        if (excludedReadingId is int readingId)
-        {
-            otherReadings = otherReadings.Where(m => m.Id != readingId);
-        }
-
-        var usCulture = CultureInfo.GetCultureInfo("en-US");
-        var date = record.DatePerformed.ToString("MMM d, yyyy", usCulture);
-
-        int? highestBefore = await otherReadings
-            .Where(m => m.DateRecorded < record.DatePerformed)
-            .MaxAsync(m => (int?)m.Mileage);
-        if (highestBefore is int before && mileage < before)
+        if (record.MaintenanceItem == MaintenanceItem.Other &&
+            string.IsNullOrWhiteSpace(record.Description))
         {
             throw new ArgumentException(
-                $"The mileage cannot be lower than {before.ToString("N0", usCulture)} mi, which was recorded before {date}.");
-        }
-
-        int? lowestAfter = await otherReadings
-            .Where(m => m.DateRecorded > record.DatePerformed)
-            .MinAsync(m => (int?)m.Mileage);
-        if (lowestAfter is int after && mileage > after)
-        {
-            throw new ArgumentException(
-                $"The mileage cannot be higher than {after.ToString("N0", usCulture)} mi, which was recorded after {date}.");
-        }
-
-        if (record.MaintenanceItem == MaintenanceItem.Other && string.IsNullOrWhiteSpace(record.Description))
-        {
-            throw new ArgumentException("A description is required when the maintenance item is Other.");
+                "A description is required when the maintenance item is Other.");
         }
 
         // The same service can't be logged twice for the same vehicle on the same date.
@@ -333,6 +335,9 @@ public class MaintenanceService(ApplicationDbContext context, MileageTrackingSer
             if (isDuplicate)
             {
                 var serviceName = DisplayNameHelper.ToDisplayName(record.MaintenanceItem);
+                var usCulture = CultureInfo.GetCultureInfo("en-US");
+                var date = record.DatePerformed.ToString("MMM d, yyyy", usCulture);
+
                 throw new ArgumentException(
                     $"{serviceName} is already recorded for this vehicle on {date}. Please edit that record instead.");
             }
@@ -345,9 +350,11 @@ public class MaintenanceService(ApplicationDbContext context, MileageTrackingSer
                 .AnyAsync(s => s.Id == scheduleId
                     && s.VehicleId == record.VehicleId
                     && s.MaintenanceItem == record.MaintenanceItem);
+
             if (!scheduleMatches)
             {
-                throw new ArgumentException("The maintenance schedule must belong to the same vehicle and service type.");
+                throw new ArgumentException(
+                    "The maintenance schedule must belong to the same vehicle and service type.");
             }
         }
     }
